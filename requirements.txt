@@ -1,0 +1,14 @@
+# Core
+networkx>=3.2
+pydantic>=2.5
+
+# LLM backends (install what you need)
+openai>=1.12           # for --backend openai
+aiohttp>=3.9           # for --backend ollama
+
+# Optional: local embeddings (no API key required)
+# sentence-transformers>=2.7
+
+# Dev / testing
+pytest>=7.4
+pytest-asyncio>=0.23
