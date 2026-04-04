@@ -215,7 +215,11 @@ class OllamaBackend(LLMBackend):
                     f"{self.base_url}/api/embeddings", json=payload
                 ) as resp:
                     data = await resp.json()
-                    embeddings.append(data["embedding"])
+                    # Ollama >=0.5 uses "embeddings" (list of lists); older uses "embedding"
+                    if "embeddings" in data:
+                        embeddings.append(data["embeddings"][0])
+                    else:
+                        embeddings.append(data["embedding"])
         return embeddings
 
 

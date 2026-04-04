@@ -19,7 +19,6 @@ Usage
         name="isot_run",
         n_agents=30,
         network_type="scale_free",
-        disposition_mix={"neutral": 0.5, "credulous": 0.3, "skeptical": 0.2},
         max_steps=6,
         llm_backend="ollama",
         llm_model="llama3.1:8b",

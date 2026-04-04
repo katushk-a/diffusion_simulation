@@ -136,53 +136,6 @@ def compute_all_cascades(log: SimulationLog) -> list[CascadeMetrics]:
 # Structural virality helper
 # ---------------------------------------------------------------------------
 
-def compute_adoption_by_disposition(
-    log: SimulationLog,
-    agent_dispositions: dict[str, str],
-) -> dict[str, dict]:
-    """
-    Compute adoption rate broken down by agent disposition group.
-
-    Parameters
-    ----------
-    log:                 SimulationLog from a completed simulation run
-    agent_dispositions:  mapping of agent_id → disposition label
-                         (e.g. "skeptical", "credulous", "neutral")
-
-    Returns
-    -------
-    dict keyed by disposition label:
-        {
-          "received":  int,
-          "forwarded": int,
-          "adoption_rate": float,
-        }
-    """
-    received: dict[str, int] = {}
-    forwarded: dict[str, int] = {}
-
-    for event in log.events:
-        agent_id = event.agent_id
-        disposition = agent_dispositions.get(agent_id, "unknown")
-
-        if event.event_type == "received":
-            received[disposition] = received.get(disposition, 0) + 1
-        elif event.event_type == "forwarded":
-            forwarded[disposition] = forwarded.get(disposition, 0) + 1
-
-    all_dispositions = set(received) | set(forwarded)
-    result = {}
-    for disp in sorted(all_dispositions):
-        r = received.get(disp, 0)
-        f = forwarded.get(disp, 0)
-        result[disp] = {
-            "received": r,
-            "forwarded": f,
-            "adoption_rate": f / r if r > 0 else 0.0,
-        }
-    return result
-
-
 def compare_by_label(
     cascade_metrics: list[CascadeMetrics],
 ) -> dict[str, dict]:

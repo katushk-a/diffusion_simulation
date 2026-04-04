@@ -54,29 +54,6 @@ class MultiRunResult:
             json.dumps(run_summaries, indent=2)
         )
 
-        # Adoption by disposition — average across runs
-        combined_adoption: dict[str, dict[str, list]] = {}
-        for r in self.runs:
-            for disp, vals in r.adoption_by_disposition.items():
-                if disp not in combined_adoption:
-                    combined_adoption[disp] = {"received": [], "forwarded": [], "adoption_rate": []}
-                combined_adoption[disp]["received"].append(vals["received"])
-                combined_adoption[disp]["forwarded"].append(vals["forwarded"])
-                combined_adoption[disp]["adoption_rate"].append(vals["adoption_rate"])
-
-        agg_adoption = {
-            disp: {
-                "mean_adoption_rate": statistics.mean(v["adoption_rate"]),
-                "std_adoption_rate": statistics.stdev(v["adoption_rate"]) if len(v["adoption_rate"]) > 1 else 0.0,
-                "mean_received": statistics.mean(v["received"]),
-                "mean_forwarded": statistics.mean(v["forwarded"]),
-            }
-            for disp, v in combined_adoption.items()
-        }
-        (out / "adoption_by_disposition_aggregated.json").write_text(
-            json.dumps(agg_adoption, indent=2)
-        )
-
         logger.info("Multi-run results saved to %s", out)
         return out
 

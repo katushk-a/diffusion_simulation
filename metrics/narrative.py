@@ -161,6 +161,81 @@ class NarrativeTracker:
 
 
 # ---------------------------------------------------------------------------
+# Agent-level narrative contribution
+# ---------------------------------------------------------------------------
+
+def agent_narrative_contributions(
+    stats: CascadeNarrativeStats,
+) -> list[dict]:
+    """
+    Rank agents by how much they mutated the message they forwarded.
+
+    Uses parent_similarity from each MessageNarrativeRecord:
+    a lower parent_similarity means the agent changed the content more.
+
+    Returns a list of dicts sorted by mutation_score descending (most mutating first):
+        {
+          "agent_id":              str,
+          "mean_parent_similarity": float,   # avg similarity to direct parent message
+          "mutation_score":         float,   # 1 - mean_parent_similarity
+          "n_messages":             int,     # number of messages sent by this agent
+        }
+    Only agents who actually forwarded (and have a measurable parent) are included.
+    """
+    from collections import defaultdict
+
+    agent_sims: dict[str, list[float]] = defaultdict(list)
+    for r in stats.records:
+        if r.parent_similarity is not None and r.step > 0:
+            agent_sims[r.sender_agent_id].append(r.parent_similarity)
+
+    result = []
+    for agent_id, sims in agent_sims.items():
+        mean_sim = sum(sims) / len(sims)
+        result.append({
+            "agent_id": agent_id,
+            "mean_parent_similarity": round(mean_sim, 4),
+            "mutation_score": round(1.0 - mean_sim, 4),
+            "n_messages": len(sims),
+        })
+
+    return sorted(result, key=lambda x: x["mutation_score"], reverse=True)
+
+
+def top_mutating_agents(
+    all_stats: list[CascadeNarrativeStats],
+    top_n: int = 10,
+) -> list[dict]:
+    """
+    Aggregate mutation scores across multiple cascades.
+
+    Returns top_n agents ranked by mean mutation score across all cascades
+    they participated in:
+        {
+          "agent_id":          str,
+          "mean_mutation_score": float,
+          "n_cascades":          int,
+        }
+    """
+    from collections import defaultdict
+
+    scores: dict[str, list[float]] = defaultdict(list)
+    for stats in all_stats:
+        for entry in agent_narrative_contributions(stats):
+            scores[entry["agent_id"]].append(entry["mutation_score"])
+
+    result = [
+        {
+            "agent_id": agent_id,
+            "mean_mutation_score": round(sum(s) / len(s), 4),
+            "n_cascades": len(s),
+        }
+        for agent_id, s in scores.items()
+    ]
+    return sorted(result, key=lambda x: x["mean_mutation_score"], reverse=True)[:top_n]
+
+
+# ---------------------------------------------------------------------------
 # Math helpers
 # ---------------------------------------------------------------------------
 

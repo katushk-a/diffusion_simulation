@@ -12,12 +12,11 @@ Usage examples:
                  --label-map '{"REAL":"true","FAKE":"fake"}' --n-per-label 10
 
   # Run preset experiments
-  python main.py --preset disposition --backend openai --model gpt-4o-mini --runs 3
+  python main.py --preset narrative --backend openai --model gpt-4o-mini --runs 3
 """
 
 import argparse
 import asyncio
-import json
 import pathlib
 import sys
 from pathlib import Path
@@ -40,13 +39,6 @@ async def run_configs(configs, n_runs: int = 1, base_seed: int = 42) -> None:
         if n_runs > 1:
             multi = await run_multi(cfg, n_runs=n_runs, base_seed=base_seed)
             multi.print_summary()
-            print(f"\n  Adoption by disposition (aggregated):")
-            for disp, vals in (
-                json.loads(
-                    (pathlib.Path(cfg.output_dir) / f"{cfg.name}_multi" / "adoption_by_disposition_aggregated.json").read_text()
-                )
-            ).items():
-                print(f"    {disp:<25} adoption_rate={vals['mean_adoption_rate']:.3f} ± {vals['std_adoption_rate']:.3f}")
             print(f"  Results saved → results/{cfg.name}_multi/")
         else:
             runner = ExperimentRunner(cfg)
@@ -54,9 +46,6 @@ async def run_configs(configs, n_runs: int = 1, base_seed: int = 42) -> None:
             summary = result.summary()
             for k, v in summary.items():
                 print(f"  {k:<35} {v}")
-            print(f"\n  Adoption by disposition:")
-            for disp, vals in result.adoption_by_disposition.items():
-                print(f"    {disp:<25} adoption_rate={vals['adoption_rate']:.3f}  (recv={vals['received']}, fwd={vals['forwarded']})")
             print(f"  Results saved → results/{cfg.name}/")
 
 
@@ -66,7 +55,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "disposition", "narrative", "all"],
+        choices=["topology", "narrative", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -157,10 +146,9 @@ def main() -> None:
 
     if args.list_presets:
         print("Available presets:")
-        print("  topology    – compare random / scale_free / small_world networks")
-        print("  disposition – compare agent behavioral dispositions")
-        print("  narrative   – compare true vs. fake vs. misleading news drift")
-        print("  all         – run all of the above")
+        print("  topology  – compare random / scale_free / small_world networks")
+        print("  narrative – compare true vs. fake vs. misleading news drift")
+        print("  all       – run all of the above")
         return
 
     kwargs = dict(
@@ -213,7 +201,6 @@ def main() -> None:
             n_agents=args.n_agents,
             network_type="scale_free",
             network_file=args.network_file,
-            disposition_mix={"neutral": 0.5, "credulous": 0.25, "skeptical": 0.25},
             max_steps=args.steps,
             llm_backend=args.backend,
             llm_model=args.model,
@@ -242,15 +229,12 @@ def main() -> None:
     elif args.preset:
         from experiments.presets import (
             all_presets,
-            disposition_experiments,
             narrative_drift_experiments,
             network_topology_experiments,
         )
         match args.preset:
             case "topology":
                 configs = network_topology_experiments(**kwargs)
-            case "disposition":
-                configs = disposition_experiments(**kwargs)
             case "narrative":
                 configs = narrative_drift_experiments(**kwargs)
             case "all":
@@ -265,7 +249,6 @@ def main() -> None:
                 seed=args.seed,
                 n_agents=args.n_agents,
                 network_type="scale_free",
-                disposition_mix={"neutral": 0.5, "credulous": 0.3, "skeptical": 0.2},
                 max_steps=args.steps,
                 seed_messages=[
                     SeedMessage(

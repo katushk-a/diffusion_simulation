@@ -251,12 +251,8 @@ class DiffusionSimulation:
             )
             return
 
-        # Determine forwarded content
-        forwarded_content = (
-            decision.rewritten_content
-            if decision.rewrite and decision.rewritten_content
-            else msg.content
-        )
+        # Use the agent's retelling when provided, fall back to original
+        forwarded_content = decision.rewritten_content or msg.content
 
         # Fan out to all neighbors
         neighbors = get_neighbors(self.graph, receiver_id)

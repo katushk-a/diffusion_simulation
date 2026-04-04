@@ -11,7 +11,6 @@ Available plots
 plot_cascade_tree          – directed cascade as a layered tree
 plot_diffusion_curve       – cumulative reach per step (one line per cascade)
 plot_narrative_similarity  – similarity-to-seed vs step for each cascade
-plot_adoption_by_disposition – bar chart of adoption rate per disposition
 plot_comparison_by_label   – grouped bars comparing metrics across content labels
 save_all_plots             – save all relevant plots for an ExperimentResult
 save_dataset_plots         – save comparison plots for a DatasetExperimentResult
@@ -307,48 +306,7 @@ def plot_narrative_similarity(
 
 
 # ---------------------------------------------------------------------------
-# 4. Adoption by disposition
-# ---------------------------------------------------------------------------
-
-def plot_adoption_by_disposition(
-    adoption_by_disposition: dict,
-    ax: plt.Axes | None = None,
-) -> plt.Figure:
-    """
-    Horizontal bar chart of adoption rates broken down by agent disposition.
-    """
-    own_fig = ax is None
-    if own_fig:
-        fig, ax = plt.subplots(figsize=(7, max(3, len(adoption_by_disposition) * 0.6)))
-    else:
-        fig = ax.figure
-
-    if not adoption_by_disposition:
-        ax.text(0.5, 0.5, "No disposition data", ha="center", va="center",
-                transform=ax.transAxes)
-        ax.axis("off")
-        if own_fig:
-            fig.tight_layout()
-        return fig
-
-    dispositions = list(adoption_by_disposition.keys())
-    rates = [adoption_by_disposition[d]["adoption_rate"] for d in dispositions]
-    colours = plt.cm.RdYlGn([r for r in rates])
-
-    bars = ax.barh(dispositions, rates, color=colours, edgecolor="white", height=0.6)
-    ax.bar_label(bars, fmt="%.3f", padding=3, fontsize=9)
-    ax.set_xlim(0, 1.15)
-    ax.set_xlabel("Adoption rate (forwarded / received)")
-    ax.set_title("Adoption rate by agent disposition")
-    ax.grid(True, axis="x", alpha=0.3)
-
-    if own_fig:
-        fig.tight_layout()
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# 5. Comparison by label
+# 4. Comparison by label
 # ---------------------------------------------------------------------------
 
 def plot_comparison_by_label(
@@ -443,12 +401,6 @@ def save_all_plots(result: ExperimentResult, output_dir: pathlib.Path) -> None:
     if result.narrative_stats:
         fig = plot_narrative_similarity(result.narrative_stats)
         fig.savefig(out / "narrative_similarity.png", dpi=150, bbox_inches="tight")
-        plt.close(fig)
-
-    # 4. Adoption by disposition
-    if result.adoption_by_disposition:
-        fig = plot_adoption_by_disposition(result.adoption_by_disposition)
-        fig.savefig(out / "adoption_by_disposition.png", dpi=150, bbox_inches="tight")
         plt.close(fig)
 
     logger.info("Plots saved to %s", out)

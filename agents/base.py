@@ -2,7 +2,7 @@
 Core agent model for information diffusion simulation.
 
 Agents have:
-  - A persona (background, traits, behavioral disposition)
+  - A persona (background, epistemic profile, communication style)
   - A simple memory of received messages
   - LLM-based decision logic: forward or not, optionally rewrite
 
@@ -27,22 +27,24 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentPersona:
-    """Static description of an agent's identity and behavioral disposition."""
+    """Static description of an agent's identity and epistemic profile."""
 
     agent_id: str
     name: str
-    background: str          # demographics, occupation, life context
-    traits: str              # psychological traits / communication style
-    disposition: str         # how they handle information:
-                             # e.g. "accuracy-oriented", "persuasion-oriented",
-                             #      "skeptical", "credulous", "neutral"
+    epistemic_type: str       # "open" | "closed" | "credulous" | "strategic"
+    background: str           # biographical intro (age, occupation, location, context)
+    epistemic_profile: str    # pre-formatted bullet-point rules (Cassam framework)
+    communication_style: str  # how the agent speaks and presents information
+    information_behavior: str # how the agent evaluates and shares information
 
     def to_text(self) -> str:
+        first_name = self.name.split()[0]
         return (
-            f"Name: {self.name}\n"
-            f"Background: {self.background}\n"
-            f"Traits: {self.traits}\n"
-            f"Information behavior: {self.disposition}"
+            f"You are {self.name}, a {self.background}\n"
+            f"\nEPISTEMIC PROFILE — follow these rules strictly:\n{self.epistemic_profile}\n"
+            f"\nCOMMUNICATION STYLE: {self.communication_style}\n"
+            f"\nINFORMATION BEHAVIOR: {self.information_behavior}\n"
+            f"\nDo not break character. Respond as {first_name} would, in first person."
         )
 
 
@@ -55,8 +57,7 @@ class ForwardDecision(BaseModel):
 
     forward: bool
     reasoning: str
-    rewrite: bool = False
-    rewritten_content: Optional[str] = None
+    rewritten_content: Optional[str] = None  # agent's retelling; None only if not forwarding
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +90,7 @@ class AgentMemory:
     def add(self, step: int, content: str, reasoning: str, forwarded: bool) -> None:
         entry = MemoryEntry(
             step=step,
-            content=content[:200],
+            content=content[:500],
             reasoning=reasoning[:300],
             forwarded=forwarded,
         )
@@ -201,23 +202,25 @@ class DiffusionAgent:
 # ---------------------------------------------------------------------------
 
 _DEFAULT_PROMPT_TEMPLATE = """\
-You are simulating a social media user. Decide whether to share a message.
-
-=== YOUR PROFILE ===
 {persona}
 
-=== YOUR RECENT MESSAGES ===
+=== YOUR RECENT ACTIVITY ===
 {memory}
 
 === INCOMING MESSAGE ===
 "{content}"
 
 === TASK ===
-Decide whether you would share/forward this message to your followers.
-Consider your personality, past behavior, and the message content.
+Decide whether you would share this with your followers.
+Stay fully in character — let your epistemic profile and information behavior drive the decision.
 
-If you forward it, you MAY rewrite it (paraphrase, add commentary, change emphasis).
-Set rewrite=true and provide rewritten_content only if you actually change the text.
+If you decide to share (forward=true), you MUST retell it in your own words as you naturally would —
+the way you would actually say it to someone, not copy-pasting. Apply your own framing, emphasis,
+and voice. You may add commentary, express your reaction, or embed it in a broader point you want
+to make. The result should sound like you, not like the original source.
+
+Set rewritten_content to your retelling. If you decide not to share (forward=false),
+leave rewritten_content null.
 """
 
 

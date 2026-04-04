@@ -21,7 +21,7 @@ import networkx as nx
 from agents.base import DiffusionAgent
 from agents.personas import build_agent_personas
 from experiments.config import ExperimentConfig
-from metrics.cascade import CascadeMetrics, compute_adoption_by_disposition, compute_all_cascades
+from metrics.cascade import CascadeMetrics, compute_all_cascades
 from metrics.narrative import CascadeNarrativeStats, NarrativeTracker
 from network.graph_builder import (
     assign_agents_to_graph,
@@ -35,15 +35,6 @@ from utils.llm import LLMBackend, create_backend
 logger = logging.getLogger(__name__)
 
 
-def _short_disposition(disposition_text: str) -> str:
-    """Map a full disposition description back to its short label."""
-    from agents.personas import DISPOSITION_DESCRIPTIONS
-    for label, desc in DISPOSITION_DESCRIPTIONS.items():
-        if desc == disposition_text:
-            return label
-    return "unknown"
-
-
 # ---------------------------------------------------------------------------
 # Result container
 # ---------------------------------------------------------------------------
@@ -54,7 +45,6 @@ class ExperimentResult:
     graph_stats: dict
     cascade_metrics: list[CascadeMetrics]
     narrative_stats: list[CascadeNarrativeStats]
-    adoption_by_disposition: dict        # disposition → {received, forwarded, adoption_rate}
     simulation_log: SimulationLog
     elapsed_seconds: float
 
@@ -104,11 +94,6 @@ class ExperimentResult:
         # Cascade metrics
         (out / "cascade_metrics.json").write_text(
             json.dumps([asdict(c) for c in self.cascade_metrics], indent=2)
-        )
-
-        # Adoption by disposition
-        (out / "adoption_by_disposition.json").write_text(
-            json.dumps(self.adoption_by_disposition, indent=2)
         )
 
         # Narrative stats (convert dataclasses to dicts)
@@ -187,8 +172,8 @@ class ExperimentRunner:
             )
         personas = build_agent_personas(
             n_agents,
-            disposition_mix=cfg.disposition_mix,
             seed=cfg.seed,
+            persona_mix=cfg.persona_mix,
         )
         agent_ids = [p.agent_id for p in personas]
         graph = assign_agents_to_graph(graph, agent_ids)
@@ -229,15 +214,7 @@ class ExperimentRunner:
         # 8. Cascade metrics
         cascade_metrics = compute_all_cascades(log)
 
-        # 9. Adoption by disposition
-        agent_dispositions = {
-            p.agent_id: _short_disposition(p.disposition)
-            for p in personas
-        }
-        adoption_by_disposition = compute_adoption_by_disposition(log, agent_dispositions)
-        logger.info("Adoption by disposition: %s", adoption_by_disposition)
-
-        # 10. Narrative metrics
+        # 9. Narrative metrics
         narrative_stats: list[CascadeNarrativeStats] = []
         if cfg.compute_narrative_metrics and log.messages:
             tracker = NarrativeTracker(llm)
@@ -251,7 +228,6 @@ class ExperimentRunner:
             graph_stats=gstats,
             cascade_metrics=cascade_metrics,
             narrative_stats=narrative_stats,
-            adoption_by_disposition=adoption_by_disposition,
             simulation_log=log,
             elapsed_seconds=elapsed,
         )

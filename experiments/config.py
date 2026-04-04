@@ -12,7 +12,6 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 from network.graph_builder import NetworkType
-from agents.personas import DispositionType
 
 
 class SeedMessage(BaseModel):
@@ -39,10 +38,11 @@ class ExperimentConfig(BaseModel):
     network_type: NetworkType = "scale_free"
     network_params: dict[str, Any] = Field(default_factory=dict)
 
-    # Agent dispositions (fraction of each type, must sum to ~1.0)
-    disposition_mix: dict[str, float] = Field(
-        default_factory=lambda: {"neutral": 1.0}
-    )
+    # Agent population composition.
+    # Maps epistemic_type → fraction of agents. Must sum to ~1.0.
+    # Available types: "open", "closed", "credulous", "strategic"
+    # When None, all 25 persona templates are cycled in order (no composition control).
+    persona_mix: Optional[dict[str, float]] = None
 
     # Simulation
     max_steps: int = 8
