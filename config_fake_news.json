@@ -1,0 +1,29 @@
+{
+  "name": "narrative_fake_news",
+  "description": "",
+  "seed": 42,
+  "n_agents": 30,
+  "network_type": "scale_free",
+  "network_params": {
+    "m": 4
+  },
+  "persona_mix": null,
+  "max_steps": 8,
+  "seed_messages": [
+    {
+      "content": "BREAKING: Secret government documents leaked – 5G towers are being used to transmit mind-control frequencies. Share before this gets deleted!",
+      "origin_agent_id": "agent_000",
+      "step": 0,
+      "label": "",
+      "item_id": ""
+    }
+  ],
+  "llm_backend": "ollama",
+  "llm_model": "llama3.1:8b",
+  "llm_embedding_model": null,
+  "network_file": null,
+  "prompt_template": null,
+  "interventions": [],
+  "output_dir": "results",
+  "compute_narrative_metrics": true
+}

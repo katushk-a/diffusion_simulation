@@ -1,0 +1,25 @@
+{
+  "name": "deep_smallworld",
+  "description": "Deep cascade experiment: small-world, mostly credulous, misleading news, 12 steps.",
+  "seed": 42,
+  "n_agents": 50,
+  "network_type": "small_world",
+  "network_params": {"k": 6, "p": 0.15},
+  "persona_mix": {"credulous": 0.65, "strategic": 0.20, "open": 0.10, "closed": 0.05},
+  "max_steps": 12,
+  "max_concurrent_llm": 2,
+  "seed_messages": [
+    {
+      "content": "New study shows vaccines are linked to a 35% increase in autism risk — why is the mainstream media hiding this?",
+      "origin_agent_id": "agent_000",
+      "label": "misleading",
+      "item_id": "deep_misleading_1"
+    }
+  ],
+  "llm_backend": "ollama",
+  "llm_model": "llama3.1:8b",
+  "llm_embedding_model": "nomic-embed-text",
+  "compute_narrative_metrics": true,
+  "interventions": [],
+  "output_dir": "results"
+}

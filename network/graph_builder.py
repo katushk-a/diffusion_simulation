@@ -39,10 +39,10 @@ def build_graph(
 
         case "scale_free":
             m = kwargs.get("m", 2)
-            # scale_free_graph is directed by default
-            g = nx.scale_free_graph(n, seed=seed)
-            # Convert MultiDiGraph → DiGraph (remove parallel edges)
-            g = nx.DiGraph(g)
+            # Barabási–Albert preferential attachment (undirected → directed)
+            # m = number of edges each new node attaches to; higher = denser
+            ug = nx.barabasi_albert_graph(n, m, seed=seed)
+            g = ug.to_directed()
 
         case "small_world":
             k = kwargs.get("k", 4)

@@ -23,6 +23,43 @@ class SeedMessage(BaseModel):
     item_id: str = ""     # original dataset row ID
 
 
+class Intervention(BaseModel):
+    """
+    A single intervention applied during the simulation.
+
+    Three types:
+      block   — remove target agents from the network before the cascade starts.
+                Models deplatforming or account suspension.
+      label   — prepend a fact-check notice to messages before they reach target
+                agents. Models platform warning labels.
+      correct — inject a counter-message at a given step. Models a debunking
+                article published after misinformation has already spread.
+
+    Targeting (for block / label): specify any combination of:
+      target_agent_ids       — specific agents by ID
+      target_epistemic_types — all agents of these types ("open","closed",...)
+      target_top_k_hubs      — top-k agents by out-degree centrality
+    All non-empty targets are unioned.
+    """
+
+    type: Literal["block", "label", "correct"]
+
+    # --- targeting (block / label) ---
+    target_agent_ids: list[str] = Field(default_factory=list)
+    target_epistemic_types: list[str] = Field(default_factory=list)
+    target_top_k_hubs: int = 0
+
+    # --- timing (label / correct) ---
+    at_step: int = 0          # label: apply from this step onward; correct: inject at this step
+
+    # --- label params ---
+    label_prefix: str = "[FACT-CHECKERS: This claim is disputed] "
+
+    # --- correct params ---
+    correction_content: str = ""
+    correction_origin_agent_id: str = "agent_000"
+
+
 class ExperimentConfig(BaseModel):
     """Complete, serializable experiment specification."""
 
@@ -48,6 +85,10 @@ class ExperimentConfig(BaseModel):
     max_steps: int = 8
     seed_messages: list[SeedMessage] = Field(default_factory=list)
 
+    # Max concurrent LLM calls per simulation step.
+    # Lower for local models (Ollama), higher for hosted APIs (OpenAI).
+    max_concurrent_llm: int = 8
+
     # LLM backend
     llm_backend: Literal["openai", "ollama", "mock"] = "mock"
     llm_model: Optional[str] = None          # e.g. "gpt-4o-mini" or "llama3.2"
@@ -62,6 +103,9 @@ class ExperimentConfig(BaseModel):
     # Must contain the placeholders {persona}, {memory}, {content}.
     # Leave as None to use the built-in default prompt.
     prompt_template: Optional[str] = None
+
+    # Interventions applied during the simulation (empty = no intervention / baseline)
+    interventions: list[Intervention] = Field(default_factory=list)
 
     # Output
     output_dir: str = "results"

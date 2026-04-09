@@ -78,9 +78,11 @@ class DiffusionSimulation:
 
     Parameters
     ----------
-    agents:     dict mapping agent_id → DiffusionAgent
-    graph:      NetworkX DiGraph with 'agent_id' node attributes
-    max_steps:  maximum number of simulation steps
+    agents:        dict mapping agent_id → DiffusionAgent
+    graph:         NetworkX DiGraph with 'agent_id' node attributes
+    max_steps:     maximum number of simulation steps
+    interventions: list of label / correct interventions to apply at runtime
+                   (block interventions are applied before construction)
     """
 
     def __init__(
@@ -88,14 +90,46 @@ class DiffusionSimulation:
         agents: dict[str, DiffusionAgent],
         graph: nx.DiGraph,
         max_steps: int = 10,
+        interventions: list | None = None,
+        max_concurrent_llm: int = 8,
     ) -> None:
         self.agents = agents
         self.graph = graph
         self.max_steps = max_steps
         self.log = SimulationLog()
+        self._interventions = interventions or []
+        # Semaphore prevents flooding a local LLM (e.g. Ollama) with too many
+        # concurrent requests. Increase for hosted APIs, decrease for slow hardware.
+        self._llm_semaphore = asyncio.Semaphore(max_concurrent_llm)
+
+        # Pre-compute label targets: agent_id → list of (at_step, prefix)
+        self._label_targets: dict[str, list[tuple[int, str]]] = {}
+        for iv in self._interventions:
+            if iv.type == "label":
+                for agent_id in self.agents:
+                    agent = self.agents[agent_id]
+                    if (
+                        agent_id in iv.target_agent_ids
+                        or agent.persona.epistemic_type in iv.target_epistemic_types
+                    ):
+                        self._label_targets.setdefault(agent_id, []).append(
+                            (iv.at_step, iv.label_prefix)
+                        )
 
         # step_queue[step] = list of messages to deliver at that step
         self._step_queue: dict[int, list[Message]] = {}
+
+        # Pre-queue correction messages
+        for iv in self._interventions:
+            if iv.type == "correct" and iv.correction_content:
+                logger.info(
+                    "Correction scheduled at step %d from %s.",
+                    iv.at_step, iv.correction_origin_agent_id,
+                )
+                self._pending_corrections: list = getattr(self, "_pending_corrections", [])
+                self._pending_corrections.append(iv)
+        if not hasattr(self, "_pending_corrections"):
+            self._pending_corrections = []
 
     # ------------------------------------------------------------------
     # Public API
@@ -164,6 +198,17 @@ class DiffusionSimulation:
     async def run(self) -> SimulationLog:
         """Run the full simulation for max_steps steps."""
         for step in range(self.max_steps):
+            # Fire any correction interventions due at this step
+            for iv in self._pending_corrections:
+                if iv.at_step == step:
+                    logger.info("Injecting correction at step %d.", step)
+                    self.seed(
+                        origin_agent_id=iv.correction_origin_agent_id,
+                        content=iv.correction_content,
+                        step=step,
+                        label="correction",
+                    )
+
             messages_this_step = self._step_queue.pop(step, [])
             if not messages_this_step and step > 0:
                 logger.info("Step %d: no messages, simulation ends early.", step)
@@ -206,6 +251,14 @@ class DiffusionSimulation:
             logger.warning("Agent %s not found; dropping message.", receiver_id)
             return
 
+        # Apply label intervention: prepend fact-check prefix to message content
+        label_rules = self._label_targets.get(receiver_id, [])
+        if label_rules:
+            active_prefixes = [prefix for (at_step, prefix) in label_rules if step >= at_step]
+            if active_prefixes:
+                combined_prefix = "".join(active_prefixes)
+                msg = msg.model_copy(update={"content": combined_prefix + msg.content})
+
         # Log receipt
         self.log.add_event(
             SimulationEvent(
@@ -234,8 +287,9 @@ class DiffusionSimulation:
             )
             return
 
-        # LLM decision
-        decision = await agent.evaluate_message(msg, step)
+        # LLM decision — semaphore caps concurrent calls to avoid overwhelming local models
+        async with self._llm_semaphore:
+            decision = await agent.evaluate_message(msg, step)
 
         if not decision.forward:
             self.log.add_event(

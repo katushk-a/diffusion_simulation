@@ -1,0 +1,25 @@
+{
+  "name": "deep_scalefree",
+  "description": "Deep cascade experiment: scale-free, mostly credulous, fake news, 12 steps.",
+  "seed": 42,
+  "n_agents": 50,
+  "network_type": "scale_free",
+  "network_params": {"m": 3},
+  "persona_mix": {"credulous": 0.65, "strategic": 0.20, "open": 0.10, "closed": 0.05},
+  "max_steps": 12,
+  "max_concurrent_llm": 2,
+  "seed_messages": [
+    {
+      "content": "BREAKING: Secret government documents leaked — 5G towers are being used to transmit mind-control frequencies. Share before this gets deleted!",
+      "origin_agent_id": "agent_000",
+      "label": "fake",
+      "item_id": "deep_fake_1"
+    }
+  ],
+  "llm_backend": "ollama",
+  "llm_model": "llama3.1:8b",
+  "llm_embedding_model": "nomic-embed-text",
+  "compute_narrative_metrics": true,
+  "interventions": [],
+  "output_dir": "results"
+}

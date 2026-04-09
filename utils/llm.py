@@ -239,12 +239,10 @@ class MockBackend(LLMBackend):
     async def complete(self, prompt: str, temperature: float = 0.7) -> str:
         # Return minimal valid JSON if prompt asks for it
         if "forward" in prompt.lower() and "json" in prompt.lower():
-            decision = "true" if self.always_forward else "false"
             return json.dumps(
                 {
                     "forward": self.always_forward,
                     "reasoning": "Mock agent always forwards." if self.always_forward else "Mock agent never forwards.",
-                    "rewrite": False,
                     "rewritten_content": None,
                 }
             )

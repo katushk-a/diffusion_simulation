@@ -20,7 +20,7 @@ import networkx as nx
 
 from agents.base import DiffusionAgent
 from agents.personas import build_agent_personas
-from experiments.config import ExperimentConfig
+from experiments.config import ExperimentConfig, Intervention
 from metrics.cascade import CascadeMetrics, compute_all_cascades
 from metrics.narrative import CascadeNarrativeStats, NarrativeTracker
 from network.graph_builder import (
@@ -33,6 +33,34 @@ from simulation.runner import DiffusionSimulation, SimulationLog
 from utils.llm import LLMBackend, create_backend
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Intervention helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_targets(
+    interventions: list[Intervention],
+    personas: list,
+    graph: nx.DiGraph,
+) -> set[str]:
+    """
+    Union all target agent_ids across a list of interventions.
+    Handles three targeting modes: explicit IDs, epistemic_type, top-k hubs.
+    """
+    targeted: set[str] = set()
+    for iv in interventions:
+        targeted.update(iv.target_agent_ids)
+        if iv.target_epistemic_types:
+            targeted.update(
+                p.agent_id for p in personas
+                if p.epistemic_type in iv.target_epistemic_types
+            )
+        if iv.target_top_k_hubs > 0:
+            degree = dict(graph.out_degree())
+            top_k = sorted(degree, key=degree.get, reverse=True)[: iv.target_top_k_hubs]
+            targeted.update(top_k)
+    return targeted
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +205,17 @@ class ExperimentRunner:
         )
         agent_ids = [p.agent_id for p in personas]
         graph = assign_agents_to_graph(graph, agent_ids)
+
+        # 3b. Apply block interventions — remove agents from graph before simulation
+        block_interventions = [iv for iv in cfg.interventions if iv.type == "block"]
+        if block_interventions:
+            blocked = _resolve_targets(block_interventions, personas, graph)
+            if blocked:
+                graph = graph.copy()
+                graph.remove_nodes_from(blocked)
+                personas = [p for p in personas if p.agent_id not in blocked]
+                logger.info("Blocked %d agents: %s", len(blocked), blocked)
+
         gstats = graph_summary(graph)
         logger.info("Graph: %s", gstats)
 
@@ -186,11 +225,13 @@ class ExperimentRunner:
             for p in personas
         }
 
-        # 5. Build simulation
+        # 5. Build simulation (pass label + correct interventions for runtime use)
         sim = DiffusionSimulation(
             agents=agents,
             graph=graph,
             max_steps=cfg.max_steps,
+            interventions=[iv for iv in cfg.interventions if iv.type != "block"],
+            max_concurrent_llm=cfg.max_concurrent_llm,
         )
 
         # 6. Seed messages
