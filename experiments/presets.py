@@ -36,6 +36,7 @@ def network_topology_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """Three runs differing only in network type."""
     configs = []
@@ -55,6 +56,7 @@ def network_topology_experiments(
                 llm_model=llm_model,
                 llm_embedding_model=llm_embedding_model,
                 compute_narrative_metrics=compute_narrative_metrics,
+                max_concurrent_llm=max_concurrent_llm,
             )
         )
     return configs
@@ -72,6 +74,7 @@ def narrative_drift_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """Compare narrative evolution for true vs. misleading content."""
     configs = []
@@ -91,13 +94,60 @@ def narrative_drift_experiments(
                 llm_model=llm_model,
                 llm_embedding_model=llm_embedding_model,
                 compute_narrative_metrics=compute_narrative_metrics,
+                max_concurrent_llm=max_concurrent_llm,
             )
         )
     return configs
 
 
-def all_presets(llm_backend: str = "mock", **kwargs) -> list[ExperimentConfig]:
+def community_experiment(
+    llm_backend: str = "mock",
+    n_agents: int = 30,
+    max_steps: int = 6,
+    seed: int = 42,
+    compute_narrative_metrics: bool = True,
+    llm_model: str | None = None,
+    llm_embedding_model: str | None = None,
+    max_concurrent_llm: int = 8,
+) -> list[ExperimentConfig]:
+    """
+    Three dense cliques (communities) with sparse inter-clique bridges.
+    Seed originates inside one clique — tests whether and how information
+    crosses community boundaries, and whether narrative drifts at the bridge.
+
+    Runs true, fake, and misleading variants so results are comparable
+    against the flat scale-free narrative experiments.
+    """
+    configs = []
+    for label, content in [("true_news", TRUE_NEWS), ("fake_news", FAKE_NEWS), ("misleading", MISLEADING_NEWS)]:
+        configs.append(
+            ExperimentConfig(
+                name=f"community_{label}",
+                description=(
+                    f"Narrative drift for {label} on community network "
+                    "(3 cliques, p_in=0.8, p_out=0.05)."
+                ),
+                seed=seed,
+                n_agents=n_agents,
+                network_type="community",
+                network_params={"n_cliques": 3, "p_in": 0.8, "p_out": 0.05},
+                max_steps=max_steps,
+                seed_messages=[
+                    SeedMessage(content=content, origin_agent_id="agent_000")
+                ],
+                llm_backend=llm_backend,
+                llm_model=llm_model,
+                llm_embedding_model=llm_embedding_model,
+                compute_narrative_metrics=compute_narrative_metrics,
+                max_concurrent_llm=max_concurrent_llm,
+            )
+        )
+    return configs
+
+
+def all_presets(llm_backend: str = "mock", max_concurrent_llm: int = 8, **kwargs) -> list[ExperimentConfig]:
     return (
-        network_topology_experiments(llm_backend=llm_backend, **kwargs)
-        + narrative_drift_experiments(llm_backend=llm_backend, **kwargs)
+        network_topology_experiments(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
+        + narrative_drift_experiments(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
+        + community_experiment(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
     )

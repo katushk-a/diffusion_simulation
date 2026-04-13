@@ -370,6 +370,143 @@ def plot_comparison_by_label(
 
 
 # ---------------------------------------------------------------------------
+# 5. Network structure
+# ---------------------------------------------------------------------------
+
+def plot_network_graph(
+    graph: nx.DiGraph,
+    simulation_log: SimulationLog | None = None,
+    title: str | None = None,
+    seed: int = 42,
+) -> plt.Figure:
+    """
+    Draw the full social network graph.
+
+    Node colour encodes agent role in the simulation (if log is provided):
+      - gold diamond  : seed origin
+      - green circle  : forwarded at least once
+      - red circle    : received but never forwarded
+      - grey circle   : never reached
+
+    Node size is proportional to out-degree (hubs appear larger).
+    For community networks (nodes carry a 'community' attribute from
+    planted_partition_graph), a second panel shows community membership.
+    """
+    # Determine which agents did what
+    forwarded_ids: set[str] = set()
+    received_ids: set[str] = set()
+    origin_ids: set[str] = set()
+
+    if simulation_log:
+        for e in simulation_log.events:
+            if e.event_type == "seed":
+                origin_ids.add(e.agent_id)
+            elif e.event_type == "forwarded":
+                forwarded_ids.add(e.agent_id)
+            elif e.event_type == "received":
+                received_ids.add(e.agent_id)
+
+    # Build agent_id → node index reverse map
+    agent_to_node = {
+        data["agent_id"]: node
+        for node, data in graph.nodes(data=True)
+        if "agent_id" in data
+    }
+    node_to_agent = {v: k for k, v in agent_to_node.items()}
+
+    # Check if community partition info is available
+    has_community = any(
+        "block" in data or "community" in data
+        for _, data in graph.nodes(data=True)
+    )
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+
+    pos = nx.spring_layout(graph, seed=seed, k=1.5 / max(graph.number_of_nodes() ** 0.5, 1))
+
+    degrees = dict(graph.out_degree())
+    max_deg = max(degrees.values()) if degrees else 1
+
+    node_colours = []
+    node_sizes = []
+    node_shapes_circle = []
+    node_shapes_diamond = []
+
+    for node in graph.nodes:
+        agent_id = node_to_agent.get(node, "")
+        deg = degrees.get(node, 0)
+        size = 300 + 700 * (deg / max_deg)
+        node_sizes.append(size)
+
+        if agent_id in origin_ids:
+            node_colours.append("#f1c40f")   # gold
+            node_shapes_diamond.append(node)
+        elif agent_id in forwarded_ids:
+            node_colours.append("#2ecc71")   # green
+            node_shapes_circle.append(node)
+        elif agent_id in received_ids:
+            node_colours.append("#e74c3c")   # red
+            node_shapes_circle.append(node)
+        else:
+            node_colours.append("#bdc3c7")   # grey
+            node_shapes_circle.append(node)
+
+    # Draw edges
+    nx.draw_networkx_edges(
+        graph, pos, ax=ax,
+        arrows=True, arrowstyle="->", arrowsize=10,
+        edge_color="#cccccc", width=0.6, alpha=0.5,
+    )
+
+    # Draw circle nodes
+    circle_colours = [node_colours[list(graph.nodes).index(n)] for n in node_shapes_circle]
+    circle_sizes   = [node_sizes[list(graph.nodes).index(n)]   for n in node_shapes_circle]
+    if node_shapes_circle:
+        nx.draw_networkx_nodes(
+            graph, pos, nodelist=node_shapes_circle,
+            node_color=circle_colours, node_size=circle_sizes,
+            node_shape="o", ax=ax,
+        )
+
+    # Draw diamond nodes (origin)
+    diamond_colours = [node_colours[list(graph.nodes).index(n)] for n in node_shapes_diamond]
+    diamond_sizes   = [node_sizes[list(graph.nodes).index(n)]   for n in node_shapes_diamond]
+    if node_shapes_diamond:
+        nx.draw_networkx_nodes(
+            graph, pos, nodelist=node_shapes_diamond,
+            node_color=diamond_colours, node_size=diamond_sizes,
+            node_shape="D", ax=ax,
+        )
+
+    # Labels: short agent number only
+    labels = {
+        node: node_to_agent.get(node, str(node)).replace("agent_", "")
+        for node in graph.nodes
+    }
+    nx.draw_networkx_labels(graph, pos, labels=labels, ax=ax, font_size=6, font_color="#2c3e50")
+
+    # Legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker="D", color="w", markerfacecolor="#f1c40f", markersize=10, label="seed origin"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#2ecc71", markersize=10, label="forwarded"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#e74c3c", markersize=10, label="received, dropped"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor="#bdc3c7", markersize=10, label="not reached"),
+    ]
+    ax.legend(handles=legend_elements, loc="upper left", fontsize=8, framealpha=0.8)
+
+    n_nodes = graph.number_of_nodes()
+    n_edges = graph.number_of_edges()
+    ax.set_title(
+        title or f"Network structure  ({n_nodes} agents, {n_edges} edges)",
+        fontsize=11,
+    )
+    ax.axis("off")
+    fig.tight_layout()
+    return fig
+
+
+# ---------------------------------------------------------------------------
 # Save helpers
 # ---------------------------------------------------------------------------
 
@@ -383,6 +520,17 @@ def save_all_plots(result: ExperimentResult, output_dir: pathlib.Path) -> None:
 
     log = result.simulation_log
     cascade_metrics = result.cascade_metrics
+
+    # 0. Network structure
+    if result.graph is not None:
+        fig = plot_network_graph(
+            result.graph,
+            simulation_log=log,
+            title=f"Network — {result.config.name} ({result.config.network_type})",
+            seed=result.config.seed,
+        )
+        fig.savefig(out / "network_graph.png", dpi=150, bbox_inches="tight")
+        plt.close(fig)
 
     # 1. One cascade tree per cascade (skip if too many)
     cascade_ids = list({m.cascade_id for m in log.messages})

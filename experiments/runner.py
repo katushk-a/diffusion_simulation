@@ -71,6 +71,7 @@ def _resolve_targets(
 class ExperimentResult:
     config: ExperimentConfig
     graph_stats: dict
+    graph: nx.DiGraph
     cascade_metrics: list[CascadeMetrics]
     narrative_stats: list[CascadeNarrativeStats]
     simulation_log: SimulationLog
@@ -107,8 +108,10 @@ class ExperimentResult:
         }
 
     def save(self) -> pathlib.Path:
-        """Persist full results as JSON in output_dir / name /."""
-        out = pathlib.Path(self.config.output_dir) / self.config.name
+        """Persist full results as JSON in output_dir / name_YYYYMMDD_HHMM /."""
+        import datetime
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+        out = pathlib.Path(self.config.output_dir) / f"{self.config.name}_{ts}"
         out.mkdir(parents=True, exist_ok=True)
 
         # Config
@@ -267,6 +270,7 @@ class ExperimentRunner:
         result = ExperimentResult(
             config=cfg,
             graph_stats=gstats,
+            graph=graph,
             cascade_metrics=cascade_metrics,
             narrative_stats=narrative_stats,
             simulation_log=log,

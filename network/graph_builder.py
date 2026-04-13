@@ -1,10 +1,11 @@
 """
 NetworkX graph factories for the diffusion simulation.
 
-Three standard network types used in social network research:
+Four standard network types used in social network research:
   - Random (Erdős–Rényi)
   - Scale-free (Barabási–Albert)  – hubs + long tail, closest to real social nets
   - Small-world (Watts–Strogatz)  – high clustering + short paths
+  - Community (planted partition)  – dense cliques with sparse inter-clique bridges
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from typing import Literal
 
 import networkx as nx
 
-NetworkType = Literal["random", "scale_free", "small_world"]
+NetworkType = Literal["random", "scale_free", "small_world", "community"]
 
 
 def build_graph(
@@ -29,6 +30,9 @@ def build_graph(
     Random:       p=0.15 (edge probability)
     Scale-free:   m=2 (edges per new node)
     Small-world:  k=4 (neighbors), p=0.1 (rewiring probability)
+    Community:    n_cliques=3, p_in=0.8, p_out=0.05
+                  Dense intra-clique edges, sparse inter-clique bridges.
+                  n must be divisible by n_cliques.
 
     All defaults can be overridden via **kwargs.
     """
@@ -49,6 +53,21 @@ def build_graph(
             p = kwargs.get("p", 0.1)
             # Watts–Strogatz is undirected; convert to directed (both directions)
             ug = nx.watts_strogatz_graph(n, k, p, seed=seed)
+            g = ug.to_directed()
+
+        case "community":
+            n_cliques = kwargs.get("n_cliques", 3)
+            p_in = kwargs.get("p_in", 0.8)
+            p_out = kwargs.get("p_out", 0.05)
+            # Adjust n to be divisible by n_cliques
+            clique_size = n // n_cliques
+            if clique_size < 2:
+                raise ValueError(
+                    f"n={n} too small for n_cliques={n_cliques}; need at least {n_cliques * 2} agents."
+                )
+            ug = nx.planted_partition_graph(
+                n_cliques, clique_size, p_in, p_out, seed=seed
+            )
             g = ug.to_directed()
 
         case _:

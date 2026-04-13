@@ -171,8 +171,14 @@ class OllamaBackend(LLMBackend):
             async with session.post(
                 f"{self.base_url}/api/generate", json=payload
             ) as resp:
+                resp.raise_for_status()
                 data = await resp.json()
-                return data.get("response", "")
+                if "error" in data:
+                    raise RuntimeError(f"Ollama error: {data['error']}")
+                response = data.get("response", "")
+                if not response:
+                    logger.warning("Ollama returned empty response. Full payload: %s", data)
+                return response
 
     async def _complete_json_raw(self, prompt: str, temperature: float = 0.3) -> str:
         """Use Ollama's native JSON mode (format=json) for reliable structured output."""
@@ -189,8 +195,14 @@ class OllamaBackend(LLMBackend):
             async with session.post(
                 f"{self.base_url}/api/generate", json=payload
             ) as resp:
+                resp.raise_for_status()
                 data = await resp.json()
-                return data.get("response", "")
+                if "error" in data:
+                    raise RuntimeError(f"Ollama error: {data['error']}")
+                response = data.get("response", "")
+                if not response:
+                    logger.warning("Ollama returned empty response. Full payload: %s", data)
+                return response
 
     async def complete_json(self, prompt: str, schema: Type[T], temperature: float = 0.3) -> T:
         """Override to use Ollama native JSON mode instead of the base implementation."""

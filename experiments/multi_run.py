@@ -41,7 +41,9 @@ class MultiRunResult:
                 print(f"  {k:<38} {v['mean']:>10.4f}  {v['std']:>10.4f}")
 
     def save(self, output_dir: str = "results") -> pathlib.Path:
-        out = pathlib.Path(output_dir) / f"{self.config_name}_multi"
+        import datetime
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M")
+        out = pathlib.Path(output_dir) / f"{self.config_name}_multi_{ts}"
         out.mkdir(parents=True, exist_ok=True)
 
         (out / "aggregated.json").write_text(

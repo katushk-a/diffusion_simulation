@@ -50,12 +50,14 @@ async def run_configs(configs, n_runs: int = 1, base_seed: int = 42) -> None:
 
 
 def main() -> None:
-    setup_logging("INFO")
+    from datetime import datetime
+    _ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    setup_logging("INFO", log_file=f"logs/run_{_ts}.log")
 
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "narrative", "all"],
+        choices=["topology", "narrative", "community", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -96,6 +98,12 @@ def main() -> None:
         type=int,
         default=1,
         help="Number of repeated runs for statistical aggregation (default: 1).",
+    )
+    parser.add_argument(
+        "--max-concurrent-llm",
+        type=int,
+        default=None,
+        help="Max concurrent LLM calls per step. Use 1-2 for local Ollama, higher for hosted APIs (default: 8).",
     )
     parser.add_argument(
         "--no-narrative",
@@ -148,6 +156,7 @@ def main() -> None:
         print("Available presets:")
         print("  topology  – compare random / scale_free / small_world networks")
         print("  narrative – compare true vs. fake vs. misleading news drift")
+        print("  community – 3-clique community network, true vs. fake vs. misleading")
         print("  all       – run all of the above")
         return
 
@@ -163,6 +172,8 @@ def main() -> None:
         kwargs["compute_narrative_metrics"] = False
     if args.network_file:
         kwargs["network_file"] = args.network_file
+    if args.max_concurrent_llm is not None:
+        kwargs["max_concurrent_llm"] = args.max_concurrent_llm
 
     # ----------------------------------------------------------------
     # Dataset mode — run independently, then exit
@@ -229,6 +240,7 @@ def main() -> None:
     elif args.preset:
         from experiments.presets import (
             all_presets,
+            community_experiment,
             narrative_drift_experiments,
             network_topology_experiments,
         )
@@ -237,6 +249,8 @@ def main() -> None:
                 configs = network_topology_experiments(**kwargs)
             case "narrative":
                 configs = narrative_drift_experiments(**kwargs)
+            case "community":
+                configs = community_experiment(**kwargs)
             case "all":
                 configs = all_presets(**kwargs)
     else:
