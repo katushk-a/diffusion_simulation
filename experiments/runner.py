@@ -87,13 +87,21 @@ class ExperimentResult:
         def safe_mean(lst):
             return sum(lst) / len(lst) if lst else 0.0
 
+        unique_forwarders = [c.unique_forwarders for c in self.cascade_metrics]
+        unique_receivers = [c.unique_receivers for c in self.cascade_metrics]
+
         return {
             "name": self.config.name,
             "network_type": self.config.network_type,
             "n_agents": self.config.n_agents,
             "n_cascades": len(self.cascade_metrics),
+            # mean_cascade_size counts message-tree nodes (total forwarding actions),
+            # NOT unique agents — use mean_unique_receivers for agents actually reached
             "mean_cascade_size": safe_mean(cascade_sizes),
             "max_cascade_size": max(cascade_sizes) if cascade_sizes else 0,
+            "mean_unique_receivers": safe_mean(unique_receivers),
+            "max_unique_receivers": max(unique_receivers) if unique_receivers else 0,
+            "mean_unique_forwarders": safe_mean(unique_forwarders),
             "mean_cascade_depth": safe_mean(cascade_depths),
             "max_cascade_depth": max(cascade_depths) if cascade_depths else 0,
             "mean_structural_virality": safe_mean(sv_vals),

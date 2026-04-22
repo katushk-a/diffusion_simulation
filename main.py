@@ -57,7 +57,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "narrative", "community", "all"],
+        choices=["topology", "narrative", "community", "topology_content", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -154,10 +154,11 @@ def main() -> None:
 
     if args.list_presets:
         print("Available presets:")
-        print("  topology  – compare random / scale_free / small_world networks")
-        print("  narrative – compare true vs. fake vs. misleading news drift")
-        print("  community – 3-clique community network, true vs. fake vs. misleading")
-        print("  all       – run all of the above")
+        print("  topology         – compare random / scale_free / small_world networks (true news only)")
+        print("  narrative        – compare true vs. fake vs. misleading news drift (scale-free)")
+        print("  community        – 3-clique community network, true vs. fake vs. misleading")
+        print("  topology_content – 3×3 factorial: all content types × all network topologies")
+        print("  all              – run all of the above")
         return
 
     kwargs = dict(
@@ -243,6 +244,7 @@ def main() -> None:
             community_experiment,
             narrative_drift_experiments,
             network_topology_experiments,
+            topology_x_content_experiments,
         )
         match args.preset:
             case "topology":
@@ -251,6 +253,8 @@ def main() -> None:
                 configs = narrative_drift_experiments(**kwargs)
             case "community":
                 configs = community_experiment(**kwargs)
+            case "topology_content":
+                configs = topology_x_content_experiments(**kwargs)
             case "all":
                 configs = all_presets(**kwargs)
     else:

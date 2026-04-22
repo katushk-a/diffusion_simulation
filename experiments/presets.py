@@ -145,9 +145,59 @@ def community_experiment(
     return configs
 
 
+# ---------------------------------------------------------------------------
+# Experiment 3: Topology × Content type (3×3 factorial)
+# ---------------------------------------------------------------------------
+
+def topology_x_content_experiments(
+    llm_backend: str = "mock",
+    n_agents: int = 30,
+    max_steps: int = 6,
+    seed: int = 42,
+    compute_narrative_metrics: bool = True,
+    llm_model: str | None = None,
+    llm_embedding_model: str | None = None,
+    max_concurrent_llm: int = 8,
+) -> list[ExperimentConfig]:
+    """
+    3×3 factorial: all three content types (true, fake, misleading)
+    on all three network topologies (random, scale_free, small_world).
+    Yields 9 configs so topology and content effects can be cleanly disentangled.
+    """
+    configs = []
+    for net_type in ["random", "scale_free", "small_world"]:
+        for label, content in [
+            ("true_news", TRUE_NEWS),
+            ("fake_news", FAKE_NEWS),
+            ("misleading", MISLEADING_NEWS),
+        ]:
+            configs.append(
+                ExperimentConfig(
+                    name=f"topo_x_content_{net_type}_{label}",
+                    description=(
+                        f"Topology×Content factorial: {label} on {net_type} network."
+                    ),
+                    seed=seed,
+                    n_agents=n_agents,
+                    network_type=net_type,
+                    max_steps=max_steps,
+                    seed_messages=[
+                        SeedMessage(content=content, origin_agent_id="agent_000")
+                    ],
+                    llm_backend=llm_backend,
+                    llm_model=llm_model,
+                    llm_embedding_model=llm_embedding_model,
+                    compute_narrative_metrics=compute_narrative_metrics,
+                    max_concurrent_llm=max_concurrent_llm,
+                )
+            )
+    return configs
+
+
 def all_presets(llm_backend: str = "mock", max_concurrent_llm: int = 8, **kwargs) -> list[ExperimentConfig]:
     return (
         network_topology_experiments(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
         + narrative_drift_experiments(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
         + community_experiment(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
+        + topology_x_content_experiments(llm_backend=llm_backend, max_concurrent_llm=max_concurrent_llm, **kwargs)
     )

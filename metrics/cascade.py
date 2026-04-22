@@ -50,16 +50,23 @@ def build_cascade_tree(
 @dataclass
 class CascadeMetrics:
     cascade_id: str
-    size: int                        # nodes in the cascade tree (excl. root)
-    depth: int                       # longest root-to-leaf path
+    size: int                        # total forwarded-message nodes in cascade tree (excl. seed roots);
+                                     # counts message deliveries, NOT unique agents — one hub forwarding
+                                     # to k neighbours contributes k to this count
+    depth: int                       # longest path from root to leaf (in hops)
     max_breadth: int                 # max nodes at any single step
-    structural_virality: float       # avg pairwise shortest path length
-    unique_forwarders: int           # unique agent IDs that forwarded
-    step_distribution: dict[int, int]  # step → count of messages at that step
-    received_count: int = 0          # agents who received the message
-    forwarded_count: int = 0         # agents who chose to forward
+    structural_virality: float       # avg pairwise shortest path length (Goel et al. 2016)
+    unique_forwarders: int           # unique agent IDs that chose to forward
+    unique_receivers: int = 0        # unique agent IDs that received ≥1 message (reached agents)
+    step_distribution: dict[int, int] = None  # step → count of messages at that step
+    received_count: int = 0          # total "received" events (an agent may receive multiple times)
+    forwarded_count: int = 0         # total "forwarded" events
     adoption_rate: float = 0.0       # forwarded_count / received_count
     label: str = ""                  # content label inherited from seed ("true"/"fake"/...)
+
+    def __post_init__(self):
+        if self.step_distribution is None:
+            self.step_distribution = {}
 
 
 def compute_cascade_metrics(
@@ -97,6 +104,10 @@ def compute_cascade_metrics(
 
     unique_forwarders = len({msg.sender_agent_id for msg in messages})
 
+    # unique_receivers: distinct agents who received ≥1 message in this cascade
+    unique_receivers = len({msg.receiver_agent_id for msg in messages
+                            if msg.receiver_agent_id})
+
     # Label: take from any seed message in this cascade
     label = next((m.label for m in messages if m.is_seed()), "")
 
@@ -113,6 +124,7 @@ def compute_cascade_metrics(
         max_breadth=max_breadth,
         structural_virality=sv,
         unique_forwarders=unique_forwarders,
+        unique_receivers=unique_receivers,
         step_distribution=step_dist,
         received_count=received_count,
         forwarded_count=forwarded_count,
