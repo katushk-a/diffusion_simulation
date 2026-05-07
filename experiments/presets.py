@@ -146,6 +146,53 @@ def community_experiment(
 
 
 # ---------------------------------------------------------------------------
+# Ablation 1: Memory on vs. off
+# ---------------------------------------------------------------------------
+
+def memory_ablation_experiments(
+    llm_backend: str = "mock",
+    n_agents: int = 30,
+    max_steps: int = 6,
+    seed: int = 42,
+    compute_narrative_metrics: bool = True,
+    llm_model: str | None = None,
+    llm_embedding_model: str | None = None,
+    max_concurrent_llm: int = 8,
+) -> list[ExperimentConfig]:
+    """
+    Memory ablation: compare agent behaviour with and without episodic memory.
+    Runs true_news and fake_news on scale-free (same network as narrative preset)
+    so results are directly comparable to the baseline narrative experiments.
+    """
+    configs = []
+    for memory_enabled in [True, False]:
+        suffix = "memory_on" if memory_enabled else "memory_off"
+        for label, content in [("true_news", TRUE_NEWS), ("fake_news", FAKE_NEWS)]:
+            configs.append(
+                ExperimentConfig(
+                    name=f"ablation_{suffix}_{label}",
+                    description=(
+                        f"Memory ablation ({suffix}): {label} on scale-free network."
+                    ),
+                    seed=seed,
+                    n_agents=n_agents,
+                    network_type="scale_free",
+                    max_steps=max_steps,
+                    seed_messages=[
+                        SeedMessage(content=content, origin_agent_id="agent_000")
+                    ],
+                    agent_memory_enabled=memory_enabled,
+                    llm_backend=llm_backend,
+                    llm_model=llm_model,
+                    llm_embedding_model=llm_embedding_model,
+                    compute_narrative_metrics=compute_narrative_metrics,
+                    max_concurrent_llm=max_concurrent_llm,
+                )
+            )
+    return configs
+
+
+# ---------------------------------------------------------------------------
 # Experiment 3: Topology × Content type (3×3 factorial)
 # ---------------------------------------------------------------------------
 

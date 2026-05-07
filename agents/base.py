@@ -135,12 +135,14 @@ class DiffusionAgent:
         llm,                  # LLMBackend – injected at construction
         memory_size: int = 20,
         prompt_template: Optional[str] = None,
+        memory_enabled: bool = True,
     ) -> None:
         self.persona = persona
         self.llm = llm
         self.memory = AgentMemory(max_size=memory_size)
         self._forwarded_cascade_ids: set[str] = set()
         self.prompt_template = prompt_template
+        self.memory_enabled = memory_enabled
 
     @property
     def id(self) -> str:
@@ -163,7 +165,8 @@ class DiffusionAgent:
         Ask the LLM whether to forward *message* and how.
         Returns a ForwardDecision with forward/rewrite flags.
         """
-        prompt = _build_decision_prompt(self.persona, self.memory, message, self.prompt_template)
+        memory = self.memory if self.memory_enabled else None
+        prompt = _build_decision_prompt(self.persona, memory, message, self.prompt_template)
         try:
             decision = await self.llm.complete_json(
                 prompt, ForwardDecision, temperature=0.4
@@ -226,7 +229,7 @@ leave rewritten_content null.
 
 def _build_decision_prompt(
     persona: AgentPersona,
-    memory: AgentMemory,
+    memory: Optional[AgentMemory],
     message,
     template: Optional[str] = None,
 ) -> str:
@@ -239,8 +242,9 @@ def _build_decision_prompt(
         {content}   – incoming message text
     """
     tmpl = template if template is not None else _DEFAULT_PROMPT_TEMPLATE
+    memory_text = memory.as_text() if memory is not None else "(memory disabled)"
     return tmpl.format(
         persona=persona.to_text(),
-        memory=memory.as_text(),
+        memory=memory_text,
         content=message.content,
     )

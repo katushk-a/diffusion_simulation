@@ -57,7 +57,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "narrative", "community", "topology_content", "all"],
+        choices=["topology", "narrative", "community", "topology_content", "ablation_memory", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -78,14 +78,14 @@ def main() -> None:
     parser.add_argument(
         "--n-agents",
         type=int,
-        default=20,
-        help="Number of agents (default: 20).",
+        default=30,
+        help="Number of agents (default: 30). 30 agents ~25 min/run on Ollama llama3.1:8b.",
     )
     parser.add_argument(
         "--steps",
         type=int,
         default=6,
-        help="Max simulation steps (default: 6).",
+        help="Max simulation steps (default: 6). Cascades typically die naturally by step 5-6.",
     )
     parser.add_argument(
         "--seed",
@@ -103,7 +103,7 @@ def main() -> None:
         "--max-concurrent-llm",
         type=int,
         default=None,
-        help="Max concurrent LLM calls per step. Use 1-2 for local Ollama, higher for hosted APIs (default: 8).",
+        help="Max concurrent LLM calls per step. Use 2 for local Ollama (tested: ~25 min/run at 30 agents), 8+ for hosted APIs.",
     )
     parser.add_argument(
         "--no-narrative",
@@ -242,6 +242,7 @@ def main() -> None:
         from experiments.presets import (
             all_presets,
             community_experiment,
+            memory_ablation_experiments,
             narrative_drift_experiments,
             network_topology_experiments,
             topology_x_content_experiments,
@@ -255,6 +256,8 @@ def main() -> None:
                 configs = community_experiment(**kwargs)
             case "topology_content":
                 configs = topology_x_content_experiments(**kwargs)
+            case "ablation_memory":
+                configs = memory_ablation_experiments(**kwargs)
             case "all":
                 configs = all_presets(**kwargs)
     else:

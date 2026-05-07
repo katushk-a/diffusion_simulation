@@ -107,6 +107,9 @@ class ExperimentConfig(BaseModel):
     # Interventions applied during the simulation (empty = no intervention / baseline)
     interventions: list[Intervention] = Field(default_factory=list)
 
+    # Ablation flags
+    agent_memory_enabled: bool = True   # False = agents have no memory of prior messages
+
     # Output
     output_dir: str = "results"
     compute_narrative_metrics: bool = True

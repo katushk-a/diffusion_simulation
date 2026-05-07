@@ -94,6 +94,7 @@ class ExperimentResult:
             "name": self.config.name,
             "network_type": self.config.network_type,
             "n_agents": self.config.n_agents,
+            "agent_memory_enabled": self.config.agent_memory_enabled,
             "n_cascades": len(self.cascade_metrics),
             # mean_cascade_size counts message-tree nodes (total forwarding actions),
             # NOT unique agents — use mean_unique_receivers for agents actually reached
@@ -232,7 +233,11 @@ class ExperimentRunner:
 
         # 4. Build agents
         agents = {
-            p.agent_id: DiffusionAgent(p, llm, prompt_template=cfg.prompt_template)
+            p.agent_id: DiffusionAgent(
+                p, llm,
+                prompt_template=cfg.prompt_template,
+                memory_enabled=cfg.agent_memory_enabled,
+            )
             for p in personas
         }
 
