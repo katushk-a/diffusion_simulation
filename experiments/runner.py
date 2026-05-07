@@ -30,7 +30,7 @@ from network.graph_builder import (
     load_graph_from_file,
 )
 from simulation.runner import DiffusionSimulation, SimulationLog
-from utils.llm import LLMBackend, create_backend
+from utils.llm import HybridBackend, LLMBackend, SentenceTransformersBackend, create_backend
 
 logger = logging.getLogger(__name__)
 
@@ -188,9 +188,14 @@ class ExperimentRunner:
         llm_kwargs = {}
         if cfg.llm_model:
             llm_kwargs["model"] = cfg.llm_model
-        if cfg.llm_embedding_model:
+        if cfg.llm_embedding_model and cfg.llm_embedding_backend != "sentence_transformers":
             llm_kwargs["embedding_model"] = cfg.llm_embedding_model
         llm: LLMBackend = create_backend(cfg.llm_backend, **llm_kwargs)
+
+        if cfg.llm_embedding_backend == "sentence_transformers":
+            st_model = cfg.llm_embedding_model or "all-MiniLM-L6-v2"
+            logger.info("Embedding backend: sentence-transformers (%s)", st_model)
+            llm = HybridBackend(completion=llm, embedding=SentenceTransformersBackend(st_model))
 
         logger.info("LLM backend: %s", cfg.llm_backend)
 
@@ -275,7 +280,10 @@ class ExperimentRunner:
         narrative_stats: list[CascadeNarrativeStats] = []
         if cfg.compute_narrative_metrics and log.messages:
             tracker = NarrativeTracker(llm)
-            narrative_stats = await tracker.analyze_all(log)
+            try:
+                narrative_stats = await tracker.analyze_all(log)
+            except NotImplementedError as e:
+                logger.warning("Narrative metrics skipped — %s", e)
 
         elapsed = time.monotonic() - start
         logger.info("Experiment %r finished in %.1fs.", cfg.name, elapsed)

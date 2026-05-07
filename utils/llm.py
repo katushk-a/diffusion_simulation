@@ -96,16 +96,28 @@ class LLMBackend(ABC):
 
 
 # ---------------------------------------------------------------------------
-# OpenAI backend
+# OpenAI-compatible backend (works with OpenAI, MetaCentrum, etc.)
 # ---------------------------------------------------------------------------
 
-class OpenAIBackend(LLMBackend):
+class OpenAICompatibleBackend(LLMBackend):
+    """
+    Generic backend for any OpenAI-compatible API.
+
+    MetaCentrum example:
+        OpenAICompatibleBackend(
+            model="meta-llama/Llama-3.3-70B-Instruct",
+            base_url="https://llm.metacentrum.cz/v1",
+            api_key_env="METACENTRUM_TOKEN",
+        )
+    """
+
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
-        embedding_model: str = "text-embedding-3-small",
-        api_key: Optional[str] = None,
+        model: str,
         base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        api_key_env: str = "OPENAI_API_KEY",
+        embedding_model: Optional[str] = None,
     ) -> None:
         try:
             from openai import AsyncOpenAI
@@ -115,7 +127,7 @@ class OpenAIBackend(LLMBackend):
         self.model = model
         self.embedding_model = embedding_model
         self.client = AsyncOpenAI(
-            api_key=api_key or os.environ.get("OPENAI_API_KEY"),
+            api_key=api_key or os.environ.get(api_key_env),
             base_url=base_url,
         )
 
@@ -128,11 +140,20 @@ class OpenAIBackend(LLMBackend):
         return response.choices[0].message.content or ""
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        if self.embedding_model is None:
+            raise NotImplementedError(
+                "No embedding_model configured for this backend. "
+                "Pass embedding_model=<model-name> to enable embeddings."
+            )
         response = await self.client.embeddings.create(
             model=self.embedding_model,
             input=texts,
         )
         return [item.embedding for item in response.data]
+
+
+# Backwards-compatible alias
+OpenAIBackend = OpenAICompatibleBackend
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +257,62 @@ class OllamaBackend(LLMBackend):
 
 
 # ---------------------------------------------------------------------------
+# Sentence-transformers backend (local embeddings, no server needed)
+# ---------------------------------------------------------------------------
+
+class SentenceTransformersBackend(LLMBackend):
+    """
+    Local embedding-only backend using sentence-transformers.
+    Does NOT support complete() — pair with HybridBackend for that.
+
+    Install: pip install sentence-transformers
+    Good default model: "all-MiniLM-L6-v2" (fast, 384-dim)
+    """
+
+    def __init__(self, model: str = "all-MiniLM-L6-v2") -> None:
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as e:
+            raise ImportError("Install sentence-transformers: pip install sentence-transformers") from e
+        self._model = SentenceTransformer(model)
+
+    async def complete(self, prompt: str, temperature: float = 0.7) -> str:
+        raise NotImplementedError("SentenceTransformersBackend only supports embed(), not complete().")
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        import asyncio
+        loop = asyncio.get_event_loop()
+        vectors = await loop.run_in_executor(None, lambda: self._model.encode(texts, convert_to_numpy=True))
+        return [v.tolist() for v in vectors]
+
+
+# ---------------------------------------------------------------------------
+# Hybrid backend (split completions and embeddings across two backends)
+# ---------------------------------------------------------------------------
+
+class HybridBackend(LLMBackend):
+    """
+    Routes complete() to one backend and embed() to another.
+
+    Useful when the completion API has no embedding endpoint:
+        HybridBackend(
+            completion=OpenAICompatibleBackend(model="...", base_url="https://llm.ai.e-infra.cz/v1"),
+            embedding=SentenceTransformersBackend("all-MiniLM-L6-v2"),
+        )
+    """
+
+    def __init__(self, completion: LLMBackend, embedding: LLMBackend) -> None:
+        self._completion = completion
+        self._embedding = embedding
+
+    async def complete(self, prompt: str, temperature: float = 0.7) -> str:
+        return await self._completion.complete(prompt, temperature)
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return await self._embedding.embed(texts)
+
+
+# ---------------------------------------------------------------------------
 # Mock backend (deterministic, no external calls)
 # ---------------------------------------------------------------------------
 
@@ -274,12 +351,25 @@ def create_backend(
     **kwargs: Any,
 ) -> LLMBackend:
     """
-    backend: "openai" | "ollama" | "mock"
+    backend: "openai" | "metacentrum" | "ollama" | "mock"
     kwargs: passed to the backend constructor
+
+    MetaCentrum shortcut — set METACENTRUM_TOKEN env var, then:
+        create_backend("metacentrum", model="meta-llama/Llama-3.3-70B-Instruct")
     """
     match backend:
         case "openai":
-            return OpenAIBackend(**kwargs)
+            kwargs.setdefault("model", "gpt-4o-mini")
+            using_custom_url = "base_url" in kwargs or os.environ.get("OPENAI_BASE_URL")
+            if using_custom_url:
+                kwargs.setdefault("embedding_model", "nomic-embed-text-v1.5")
+            else:
+                kwargs.setdefault("embedding_model", "text-embedding-3-small")
+            return OpenAICompatibleBackend(**kwargs)
+        case "metacentrum":
+            kwargs.setdefault("base_url", os.environ.get("METACENTRUM_BASE_URL", "https://llm.metacentrum.cz/v1"))
+            kwargs.setdefault("api_key_env", "METACENTRUM_TOKEN")
+            return OpenAICompatibleBackend(**kwargs)
         case "ollama":
             return OllamaBackend(**kwargs)
         case "mock":

@@ -36,6 +36,7 @@ def network_topology_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
     max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """Three runs differing only in network type."""
@@ -55,6 +56,7 @@ def network_topology_experiments(
                 llm_backend=llm_backend,
                 llm_model=llm_model,
                 llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
                 compute_narrative_metrics=compute_narrative_metrics,
                 max_concurrent_llm=max_concurrent_llm,
             )
@@ -74,6 +76,7 @@ def narrative_drift_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
     max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """Compare narrative evolution for true vs. misleading content."""
@@ -93,6 +96,7 @@ def narrative_drift_experiments(
                 llm_backend=llm_backend,
                 llm_model=llm_model,
                 llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
                 compute_narrative_metrics=compute_narrative_metrics,
                 max_concurrent_llm=max_concurrent_llm,
             )
@@ -108,6 +112,7 @@ def community_experiment(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
     max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """
@@ -138,6 +143,7 @@ def community_experiment(
                 llm_backend=llm_backend,
                 llm_model=llm_model,
                 llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
                 compute_narrative_metrics=compute_narrative_metrics,
                 max_concurrent_llm=max_concurrent_llm,
             )
@@ -157,6 +163,7 @@ def memory_ablation_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
     max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """
@@ -185,6 +192,7 @@ def memory_ablation_experiments(
                     llm_backend=llm_backend,
                     llm_model=llm_model,
                     llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
                     compute_narrative_metrics=compute_narrative_metrics,
                     max_concurrent_llm=max_concurrent_llm,
                 )
@@ -204,6 +212,7 @@ def topology_x_content_experiments(
     compute_narrative_metrics: bool = True,
     llm_model: str | None = None,
     llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
     max_concurrent_llm: int = 8,
 ) -> list[ExperimentConfig]:
     """
@@ -234,6 +243,7 @@ def topology_x_content_experiments(
                     llm_backend=llm_backend,
                     llm_model=llm_model,
                     llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
                     compute_narrative_metrics=compute_narrative_metrics,
                     max_concurrent_llm=max_concurrent_llm,
                 )

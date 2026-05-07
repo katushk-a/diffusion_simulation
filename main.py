@@ -17,6 +17,7 @@ Usage examples:
 
 import argparse
 import asyncio
+import os
 import pathlib
 import sys
 from pathlib import Path
@@ -108,7 +109,13 @@ def main() -> None:
     parser.add_argument(
         "--no-narrative",
         action="store_true",
-        help="Skip narrative/embedding metrics (use when no embedding model is available).",
+        help="Skip narrative/embedding metrics.",
+    )
+    parser.add_argument(
+        "--embed-model",
+        default=None,
+        metavar="MODEL",
+        help="Embedding model for narrative metrics (overrides the default for the chosen backend).",
     )
     # Dataset mode arguments
     parser.add_argument(
@@ -171,6 +178,8 @@ def main() -> None:
         kwargs["llm_model"] = args.model
     if args.no_narrative:
         kwargs["compute_narrative_metrics"] = False
+    if args.embed_model:
+        kwargs["llm_embedding_model"] = args.embed_model
     if args.network_file:
         kwargs["network_file"] = args.network_file
     if args.max_concurrent_llm is not None:

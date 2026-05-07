@@ -93,6 +93,10 @@ class ExperimentConfig(BaseModel):
     llm_backend: Literal["openai", "ollama", "mock"] = "mock"
     llm_model: Optional[str] = None          # e.g. "gpt-4o-mini" or "llama3.2"
     llm_embedding_model: Optional[str] = None
+    # When set to "sentence_transformers", narrative embeddings use a local ST model
+    # (llm_embedding_model is the ST model name, default "all-MiniLM-L6-v2").
+    # Useful when the completion API has no embedding endpoint (e.g. MetaCentrum).
+    llm_embedding_backend: Optional[str] = None
 
     # Network from file (overrides n_agents + network_type when set)
     # Supported formats: edge list (.txt/.csv/.edgelist), GraphML (.graphml),
