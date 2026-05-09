@@ -85,7 +85,8 @@ class ExperimentResult:
         adoption_rates = [c.adoption_rate for c in self.cascade_metrics]
 
         def safe_mean(lst):
-            return sum(lst) / len(lst) if lst else 0.0
+            lst = [x for x in lst if x is not None]
+            return sum(lst) / len(lst) if lst else None
 
         unique_forwarders = [c.unique_forwarders for c in self.cascade_metrics]
         unique_receivers = [c.unique_receivers for c in self.cascade_metrics]

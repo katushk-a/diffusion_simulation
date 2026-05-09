@@ -46,7 +46,7 @@ class CascadeNarrativeStats:
     mean_similarity_to_seed: float
     min_similarity_to_seed: float
     mean_edit_distance: float
-    semantic_drift_per_step: float  # avg drop in similarity per hop
+    semantic_drift_per_step: Optional[float]  # avg drop in similarity per hop; None if depth < 2
 
 
 # ---------------------------------------------------------------------------
@@ -132,10 +132,15 @@ class NarrativeTracker:
             min_sim = min(sims)
             mean_edit = sum(edits) / len(edits)
 
-            # Drift: fit a simple slope of similarity vs step
-            drift = _linear_slope(
-                [(r.step, r.similarity_to_seed) for r in non_seed]
-            )
+            # Drift: fit a simple slope of similarity vs step.
+            # None when all messages are at the same step (depth=1) — slope is undefined.
+            steps = [r.step for r in non_seed]
+            if len(set(steps)) < 2:
+                drift = None
+            else:
+                drift = _linear_slope(
+                    [(r.step, r.similarity_to_seed) for r in non_seed]
+                )
 
         return CascadeNarrativeStats(
             cascade_id=cascade_id,
@@ -263,11 +268,11 @@ def _normalized_levenshtein(s1: str, s2: str) -> float:
     return dp[n] / max(m, n)
 
 
-def _linear_slope(points: list[tuple[int, float]]) -> float:
-    """Ordinary least-squares slope for (x, y) pairs."""
+def _linear_slope(points: list[tuple[int, float]]) -> Optional[float]:
+    """Ordinary least-squares slope for (x, y) pairs. Returns None if slope is undefined."""
     n = len(points)
     if n < 2:
-        return 0.0
+        return None
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     mean_x = sum(xs) / n

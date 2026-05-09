@@ -140,7 +140,7 @@ class DiffusionAgent:
         self.persona = persona
         self.llm = llm
         self.memory = AgentMemory(max_size=memory_size)
-        self._forwarded_cascade_ids: set[str] = set()
+        self._seen_cascade_ids: set[str] = set()
         self.prompt_template = prompt_template
         self.memory_enabled = memory_enabled
 
@@ -192,12 +192,12 @@ class DiffusionAgent:
         )
         return decision
 
-    def has_forwarded(self, cascade_id: str) -> bool:
-        """True if this agent already forwarded something in this cascade."""
-        return cascade_id in self._forwarded_cascade_ids
+    def has_seen(self, cascade_id: str) -> bool:
+        """True if this agent already received and evaluated this cascade."""
+        return cascade_id in self._seen_cascade_ids
 
-    def mark_forwarded(self, cascade_id: str) -> None:
-        self._forwarded_cascade_ids.add(cascade_id)
+    def mark_seen(self, cascade_id: str) -> None:
+        self._seen_cascade_ids.add(cascade_id)
 
 
 # ---------------------------------------------------------------------------

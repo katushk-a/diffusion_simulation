@@ -8,7 +8,7 @@ Loop (per step):
   4. All decisions are logged
 
 Design notes:
-  - One agent forwards at most once per cascade (prevents loops)
+  - One agent receives and evaluates each cascade at most once (SIR-like: once seen, immune to duplicates)
   - asyncio.gather is used for parallel agent decisions within a step
   - Full event log is written to SimulationLog
 """
@@ -259,7 +259,13 @@ class DiffusionSimulation:
                 combined_prefix = "".join(active_prefixes)
                 msg = msg.model_copy(update={"content": combined_prefix + msg.content})
 
-        # Log receipt
+        # Each agent evaluates and potentially forwards a cascade at most once.
+        # Subsequent copies (from other paths in the network) are silently dropped.
+        if agent.has_seen(msg.cascade_id):
+            return
+        agent.mark_seen(msg.cascade_id)
+
+        # Log receipt (only the first copy per agent per cascade)
         self.log.add_event(
             SimulationEvent(
                 step=step,
@@ -271,21 +277,6 @@ class DiffusionSimulation:
                 parent_message_id=msg.parent_message_id,
             )
         )
-
-        # One forward per cascade per agent (prevents cycles)
-        if agent.has_forwarded(msg.cascade_id):
-            self.log.add_event(
-                SimulationEvent(
-                    step=step,
-                    event_type="dropped",
-                    agent_id=receiver_id,
-                    message_id=msg.id,
-                    cascade_id=msg.cascade_id,
-                    content=msg.content,
-                    reasoning="Already forwarded this cascade.",
-                )
-            )
-            return
 
         # LLM decision — semaphore caps concurrent calls to avoid overwhelming local models
         async with self._llm_semaphore:
@@ -312,8 +303,6 @@ class DiffusionSimulation:
         neighbors = get_neighbors(self.graph, receiver_id)
         if not neighbors:
             return
-
-        agent.mark_forwarded(msg.cascade_id)
 
         for nb_id in neighbors:
             child = msg.forward(
