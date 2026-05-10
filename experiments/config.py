@@ -113,6 +113,9 @@ class ExperimentConfig(BaseModel):
 
     # Ablation flags
     agent_memory_enabled: bool = True   # False = agents have no memory of prior messages
+    # Controls how much agents rewrite when forwarding (0.0 = verbatim, 1.0 = full rewrite).
+    # Injected into the agent prompt as a concrete instruction.
+    rewrite_intensity: float = 0.5
 
     # Output
     output_dir: str = "results"

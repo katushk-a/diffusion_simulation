@@ -136,6 +136,7 @@ class DiffusionAgent:
         memory_size: int = 20,
         prompt_template: Optional[str] = None,
         memory_enabled: bool = True,
+        rewrite_intensity: float = 0.5,
     ) -> None:
         self.persona = persona
         self.llm = llm
@@ -143,6 +144,7 @@ class DiffusionAgent:
         self._seen_cascade_ids: set[str] = set()
         self.prompt_template = prompt_template
         self.memory_enabled = memory_enabled
+        self.rewrite_intensity = rewrite_intensity
 
     @property
     def id(self) -> str:
@@ -166,7 +168,7 @@ class DiffusionAgent:
         Returns a ForwardDecision with forward/rewrite flags.
         """
         memory = self.memory if self.memory_enabled else None
-        prompt = _build_decision_prompt(self.persona, memory, message, self.prompt_template)
+        prompt = _build_decision_prompt(self.persona, memory, message, self.prompt_template, self.rewrite_intensity)
         try:
             decision = await self.llm.complete_json(
                 prompt, ForwardDecision, temperature=0.4
@@ -217,14 +219,47 @@ _DEFAULT_PROMPT_TEMPLATE = """\
 Decide whether you would share this with your followers.
 Stay fully in character — let your epistemic profile and information behavior drive the decision.
 
-If you decide to share (forward=true), you MUST retell it in your own words as you naturally would —
-the way you would actually say it to someone, not copy-pasting. Apply your own framing, emphasis,
-and voice. You may add commentary, express your reaction, or embed it in a broader point you want
-to make. The result should sound like you, not like the original source.
+{rewrite_instruction}
 
-Set rewritten_content to your retelling. If you decide not to share (forward=false),
+Set rewritten_content to your version of the message. If you decide not to share (forward=false),
 leave rewritten_content null.
 """
+
+_REWRITE_INSTRUCTIONS = {
+    0.0: (
+        "If you share (forward=true), copy the message EXACTLY word for word. "
+        "Do not change a single word, punctuation mark, or sentence. "
+        "rewritten_content must be identical to the incoming message."
+    ),
+    0.25: (
+        "If you share (forward=true), keep the original wording as close as possible. "
+        "You may fix obvious typos or awkward phrasing, but preserve the structure, "
+        "facts, and tone of the original. Minimal changes only."
+    ),
+    0.5: (
+        "If you share (forward=true), rephrase in your own words while keeping all "
+        "key facts and the overall framing intact. You may adjust tone and emphasis "
+        "to match your voice, but do not add or remove substantive information."
+    ),
+    0.75: (
+        "If you share (forward=true), rewrite significantly in your own voice and style. "
+        "Apply your personal framing, add your reaction or commentary, and express it "
+        "the way you would naturally say it. The core claim should still be recognisable."
+    ),
+    1.0: (
+        "If you share (forward=true), completely rewrite the message from scratch as if "
+        "expressing this idea entirely in your own words. Make it sound like your own "
+        "thought or post — your voice, your framing, your angle. The original wording "
+        "should not appear at all."
+    ),
+}
+
+
+def _rewrite_instruction(intensity: float) -> str:
+    """Map a continuous intensity [0, 1] to the nearest discrete instruction."""
+    levels = sorted(_REWRITE_INSTRUCTIONS.keys())
+    nearest = min(levels, key=lambda l: abs(l - intensity))
+    return _REWRITE_INSTRUCTIONS[nearest]
 
 
 def _build_decision_prompt(
@@ -232,14 +267,16 @@ def _build_decision_prompt(
     memory: Optional[AgentMemory],
     message,
     template: Optional[str] = None,
+    rewrite_intensity: float = 0.5,
 ) -> str:
     """
     Build the LLM decision prompt.
 
     If *template* is provided it must contain the placeholders:
-        {persona}   – agent persona description
-        {memory}    – formatted recent memory
-        {content}   – incoming message text
+        {persona}            – agent persona description
+        {memory}             – formatted recent memory
+        {content}            – incoming message text
+        {rewrite_instruction} – how much the agent should rewrite
     """
     tmpl = template if template is not None else _DEFAULT_PROMPT_TEMPLATE
     memory_text = memory.as_text() if memory is not None else "(memory disabled)"
@@ -247,4 +284,5 @@ def _build_decision_prompt(
         persona=persona.to_text(),
         memory=memory_text,
         content=message.content,
+        rewrite_instruction=_rewrite_instruction(rewrite_intensity),
     )

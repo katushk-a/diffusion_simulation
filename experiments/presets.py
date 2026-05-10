@@ -85,6 +85,7 @@ def _make_config(
     network_params: dict | None = None,
     agent_memory_enabled: bool = True,
     experiment: str = "",
+    rewrite_intensity: float = 0.5,
 ) -> ExperimentConfig:
     content = _sample(label, seed, experiment=experiment)
     return ExperimentConfig(
@@ -97,6 +98,7 @@ def _make_config(
         max_steps=max_steps,
         seed_messages=[SeedMessage(content=content, origin_agent_id="agent_000", label=label)],
         agent_memory_enabled=agent_memory_enabled,
+        rewrite_intensity=rewrite_intensity,
         llm_backend=llm_backend,
         llm_model=llm_model,
         llm_embedding_model=llm_embedding_model,
@@ -225,6 +227,62 @@ def memory_ablation_experiments(
                 compute_narrative_metrics=compute_narrative_metrics,
                 max_concurrent_llm=max_concurrent_llm,
                 agent_memory_enabled=memory_enabled,
+            ))
+    return configs
+
+
+# ---------------------------------------------------------------------------
+# Ablation: Rewrite intensity (0% → 100%)
+# ---------------------------------------------------------------------------
+
+# Named levels used for folder names and results
+_REWRITE_LEVELS: list[tuple[str, float]] = [
+    ("verbatim",    0.00),
+    ("minimal",     0.25),
+    ("moderate",    0.50),
+    ("significant", 0.75),
+    ("full",        1.00),
+]
+
+
+def rewrite_ablation_experiments(
+    llm_backend: str = "mock",
+    n_agents: int = 30,
+    max_steps: int = 6,
+    seed: int = 42,
+    compute_narrative_metrics: bool = True,
+    llm_model: str | None = None,
+    llm_embedding_model: str | None = None,
+    llm_embedding_backend: str | None = None,
+    max_concurrent_llm: int = 8,
+) -> list[ExperimentConfig]:
+    """
+    Rewrite intensity ablation: 5 levels × 2 content types on scale-free network (ISOT).
+    Tests how much narrative drift and adoption change as agents are instructed to
+    rewrite more vs. less when forwarding (verbatim → minimal → moderate → significant → full).
+    """
+    configs = []
+    for level_name, intensity in _REWRITE_LEVELS:
+        for label in _CONTENT_TYPES:
+            configs.append(_make_config(
+                name=f"rewrite_{level_name}_{label}",
+                description=(
+                    f"Rewrite intensity={intensity:.2f} ({level_name}): "
+                    f"{label} news on scale-free network."
+                ),
+                label=label,
+                seed=seed,
+                experiment="rewrite_ablation",
+                n_agents=n_agents,
+                network_type="scale_free",
+                max_steps=max_steps,
+                llm_backend=llm_backend,
+                llm_model=llm_model,
+                llm_embedding_model=llm_embedding_model,
+                llm_embedding_backend=llm_embedding_backend,
+                compute_narrative_metrics=compute_narrative_metrics,
+                max_concurrent_llm=max_concurrent_llm,
+                rewrite_intensity=intensity,
             ))
     return configs
 

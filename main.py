@@ -58,7 +58,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "community", "ablation_memory", "all"],
+        choices=["topology", "community", "ablation_memory", "rewrite_ablation", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -163,8 +163,9 @@ def main() -> None:
         print("Available presets:")
         print("  topology       – 3×2 factorial: random/scale_free/small_world × true/fake (ISOT)")
         print("  community      – 3-clique community network × true/fake (ISOT)")
-        print("  ablation_memory – memory on/off × true/fake on scale-free (ISOT)")
-        print("  all            – run all of the above")
+        print("  ablation_memory  – memory on/off × true/fake on scale-free (ISOT)")
+        print("  rewrite_ablation – rewrite intensity 0→100% × true/fake on scale-free (ISOT)")
+        print("  all              – run all of the above")
         return
 
     kwargs = dict(
@@ -252,6 +253,7 @@ def main() -> None:
             community_experiment,
             memory_ablation_experiments,
             network_topology_experiments,
+            rewrite_ablation_experiments,
         )
         match args.preset:
             case "topology":
@@ -260,6 +262,8 @@ def main() -> None:
                 configs = community_experiment(**kwargs)
             case "ablation_memory":
                 configs = memory_ablation_experiments(**kwargs)
+            case "rewrite_ablation":
+                configs = rewrite_ablation_experiments(**kwargs)
             case "all":
                 configs = all_presets(**kwargs)
     else:
