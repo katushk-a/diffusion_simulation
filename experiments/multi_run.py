@@ -31,6 +31,7 @@ class MultiRunResult:
     runs: list[ExperimentResult]
     # metric → {"mean": float, "std": float, "values": list[float]}
     aggregated: dict
+    output_path: pathlib.Path = None
 
     def print_summary(self) -> None:
         print(f"\nMulti-run summary: {self.config_name}  (n={self.n_runs})")
@@ -41,6 +42,8 @@ class MultiRunResult:
                 print(f"  {k:<38} {v['mean']:>10.4f}  {v['std']:>10.4f}")
 
     def save(self, output_dir: str = "results") -> pathlib.Path:
+        if self.output_path is not None:
+            return self.output_path
         import datetime
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         out = pathlib.Path(output_dir) / f"{self.config_name}_multi_{ts}"
@@ -56,6 +59,7 @@ class MultiRunResult:
             json.dumps(run_summaries, indent=2)
         )
 
+        self.output_path = out
         logger.info("Multi-run results saved to %s", out)
         return out
 

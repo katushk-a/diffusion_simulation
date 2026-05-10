@@ -6,7 +6,7 @@ Usage examples:
   # Quick smoke test with mock LLM
   python main.py --preset topology --backend mock
 
-  # Dataset-driven experiment (true vs fake vs misleading)
+  # Dataset-driven experiment (true vs fake)
   python main.py --dataset data/sample_news.csv --backend ollama --model llama3.1:8b
   python main.py --dataset data/isot.csv --text-col text --label-col label \\
                  --label-map '{"REAL":"true","FAKE":"fake"}' --n-per-label 10
@@ -40,14 +40,14 @@ async def run_configs(configs, n_runs: int = 1, base_seed: int = 42) -> None:
         if n_runs > 1:
             multi = await run_multi(cfg, n_runs=n_runs, base_seed=base_seed)
             multi.print_summary()
-            print(f"  Results saved → results/{cfg.name}_multi/")
+            print(f"  Results saved → {multi.output_path}")
         else:
             runner = ExperimentRunner(cfg)
             result = await runner.run()
             summary = result.summary()
             for k, v in summary.items():
                 print(f"  {k:<35} {v}")
-            print(f"  Results saved → results/{cfg.name}/")
+            print(f"  Results saved → {result.output_path}")
 
 
 def main() -> None:
@@ -58,7 +58,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Information Diffusion Simulation")
     parser.add_argument(
         "--preset",
-        choices=["topology", "narrative", "community", "topology_content", "ablation_memory", "all"],
+        choices=["topology", "community", "ablation_memory", "all"],
         help="Run a named group of pre-built experiments.",
     )
     parser.add_argument(
@@ -161,11 +161,10 @@ def main() -> None:
 
     if args.list_presets:
         print("Available presets:")
-        print("  topology         – compare random / scale_free / small_world networks (true news only)")
-        print("  narrative        – compare true vs. fake vs. misleading news drift (scale-free)")
-        print("  community        – 3-clique community network, true vs. fake vs. misleading")
-        print("  topology_content – 3×3 factorial: all content types × all network topologies")
-        print("  all              – run all of the above")
+        print("  topology       – 3×2 factorial: random/scale_free/small_world × true/fake (ISOT)")
+        print("  community      – 3-clique community network × true/fake (ISOT)")
+        print("  ablation_memory – memory on/off × true/fake on scale-free (ISOT)")
+        print("  all            – run all of the above")
         return
 
     kwargs = dict(
@@ -252,44 +251,40 @@ def main() -> None:
             all_presets,
             community_experiment,
             memory_ablation_experiments,
-            narrative_drift_experiments,
             network_topology_experiments,
-            topology_x_content_experiments,
         )
         match args.preset:
             case "topology":
                 configs = network_topology_experiments(**kwargs)
-            case "narrative":
-                configs = narrative_drift_experiments(**kwargs)
             case "community":
                 configs = community_experiment(**kwargs)
-            case "topology_content":
-                configs = topology_x_content_experiments(**kwargs)
             case "ablation_memory":
                 configs = memory_ablation_experiments(**kwargs)
             case "all":
                 configs = all_presets(**kwargs)
     else:
-        # Default: single quick demo run
+        # Default: single quick demo run — samples one true and one fake article from ISOT
         from experiments.config import ExperimentConfig, SeedMessage
-        configs = [
-            ExperimentConfig(
-                name="demo",
-                description="Quick demo run.",
+        from experiments.presets import _sample
+        configs = []
+        for label in ["true", "fake"]:
+            configs.append(ExperimentConfig(
+                name=f"demo_{label}",
+                description=f"Quick demo run ({label} news from ISOT).",
                 seed=args.seed,
                 n_agents=args.n_agents,
                 network_type="scale_free",
                 max_steps=args.steps,
                 seed_messages=[
                     SeedMessage(
-                        content="Scientists confirm: daily coffee reduces risk of type 2 diabetes by 25% according to new meta-analysis.",
+                        content=_sample(label, args.seed, experiment="demo"),
                         origin_agent_id="agent_000",
+                        label=label,
                     )
                 ],
                 llm_backend=args.backend,
                 compute_narrative_metrics=True,
-            )
-        ]
+            ))
 
     asyncio.run(run_configs(configs, n_runs=args.runs, base_seed=args.seed))
 

@@ -2,7 +2,7 @@
 Dataset-driven diffusion experiment.
 
 Instead of a fixed seed message, news items are drawn from a dataset
-(true / fake / misleading). One simulation is run per news item.
+(true / fake). One simulation is run per news item.
 Results are then aggregated by label so you can directly compare
 diffusion dynamics across content types.
 
@@ -28,7 +28,7 @@ Usage
     exp = DatasetExperiment(
         base_config=cfg,
         dataset=ds,
-        n_per_label=5,             # run 5 true + 5 fake + 5 misleading items
+        n_per_label=5,             # run 5 true + 5 fake items
         origin_agent_id="agent_000",
     )
     result = await exp.run()

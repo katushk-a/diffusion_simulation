@@ -19,7 +19,7 @@ class SeedMessage(BaseModel):
     content: str
     origin_agent_id: str  # "agent_000", "agent_001", etc.
     step: int = 0
-    label: str = ""       # content type from dataset ("true", "fake", "misleading", ...)
+    label: str = ""       # content type from ISOT dataset ("true" or "fake")
     item_id: str = ""     # original dataset row ID
 
 

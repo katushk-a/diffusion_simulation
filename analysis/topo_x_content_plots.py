@@ -1,5 +1,5 @@
 """
-Comparison plots for the topology × content 3×3 factorial experiment.
+Comparison plots for the topology × content 3×2 factorial experiment.
 
 Loads summary.json from every topo_x_content_* result directory and
 produces four publication-ready figures saved to
@@ -27,15 +27,14 @@ RESULTS_DIR = ROOT / "results"
 OUT_DIR = RESULTS_DIR / "topo_x_content_comparison"
 
 NETWORKS = ["random", "scale_free", "small_world"]
-LABELS   = ["true_news", "fake_news", "misleading"]
+LABELS   = ["true", "fake"]
 
 NETWORK_DISPLAY = {"random": "Random", "scale_free": "Scale-free", "small_world": "Small-world"}
-LABEL_DISPLAY   = {"true_news": "True news", "fake_news": "Fake news", "misleading": "Misleading"}
+LABEL_DISPLAY   = {"true": "True news", "fake": "Fake news"}
 
 LABEL_COLOURS = {
-    "true_news":  "#2ecc71",
-    "fake_news":  "#e74c3c",
-    "misleading": "#e67e22",
+    "true": "#2ecc71",
+    "fake": "#e74c3c",
 }
 NETWORK_HATCHES = {"random": "", "scale_free": "//", "small_world": "xx"}
 
@@ -44,7 +43,7 @@ NETWORK_HATCHES = {"random": "", "scale_free": "//", "small_world": "xx"}
 # ---------------------------------------------------------------------------
 
 def load_results() -> dict[tuple[str, str], dict]:
-    """Return {(network, label): summary_dict} for all 9 conditions."""
+    """Return {(network, label): summary_dict} for all 6 conditions."""
     data: dict[tuple[str, str], dict] = {}
     for net in NETWORKS:
         for lbl in LABELS:
@@ -73,8 +72,8 @@ def plot_cascade_size(data: dict, out: pathlib.Path) -> None:
     fig, ax = plt.subplots(figsize=(9, 5))
 
     x = np.arange(len(NETWORKS))
-    bar_width = 0.22
-    offsets = [-bar_width, 0, bar_width]
+    bar_width = 0.30
+    offsets = [-bar_width / 2, bar_width / 2]
 
     for i, lbl in enumerate(LABELS):
         values = [get_metric(data, net, lbl, metric) for net in NETWORKS]
@@ -106,8 +105,8 @@ def plot_semantic_drift(data: dict, out: pathlib.Path) -> None:
     fig, ax = plt.subplots(figsize=(9, 5))
 
     x = np.arange(len(NETWORKS))
-    bar_width = 0.22
-    offsets = [-bar_width, 0, bar_width]
+    bar_width = 0.30
+    offsets = [-bar_width / 2, bar_width / 2]
 
     for i, lbl in enumerate(LABELS):
         values = [get_metric(data, net, lbl, metric) for net in NETWORKS]
@@ -143,7 +142,7 @@ def plot_heatmaps(data: dict, out: pathlib.Path) -> None:
     ]
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
-    fig.suptitle("3×3 Factorial: Topology × Content — Key Metrics", fontsize=13, fontweight="bold", y=1.01)
+    fig.suptitle("3×2 Factorial: Topology × Content — Key Metrics", fontsize=13, fontweight="bold", y=1.01)
 
     for ax, (metric_key, metric_label) in zip(axes.flat, metrics):
         grid = np.array([
@@ -194,8 +193,8 @@ def plot_similarity_bars(data: dict, out: pathlib.Path) -> None:
     fig, ax = plt.subplots(figsize=(9, 5))
 
     x = np.arange(len(NETWORKS))
-    bar_width = 0.22
-    offsets = [-bar_width, 0, bar_width]
+    bar_width = 0.30
+    offsets = [-bar_width / 2, bar_width / 2]
 
     for i, lbl in enumerate(LABELS):
         values = [get_metric(data, net, lbl, metric) for net in NETWORKS]

@@ -172,3 +172,38 @@ class NewsDataset:
         for item in self._items:
             counts[item.label] = counts.get(item.label, 0) + 1
         return dict(sorted(counts.items()))
+
+    @classmethod
+    def load_isot(
+        cls,
+        data_dir: str | pathlib.Path | None = None,
+        max_chars: int = 600,
+    ) -> "NewsDataset":
+        """
+        Load the ISOT Fake News Dataset from True.csv and Fake.csv.
+        Labels are inferred from the filename (true / fake).
+        Falls back gracefully if a file is missing.
+        """
+        if data_dir is None:
+            data_dir = pathlib.Path(__file__).parent
+        data_dir = pathlib.Path(data_dir)
+
+        items: list[NewsItem] = []
+        for filename, label in [("True.csv", "true"), ("Fake.csv", "fake")]:
+            path = data_dir / filename
+            if not path.exists():
+                continue
+            with open(path, newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for i, row in enumerate(reader):
+                    title = row.get("title", "").strip()
+                    text = row.get("text", "").strip()
+                    if title and not text.startswith(title):
+                        text = f"{title}. {text}"
+                    items.append(NewsItem(
+                        item_id=f"{label}_{i}",
+                        text=text[:max_chars],
+                        label=label,
+                        title=title,
+                    ))
+        return cls(items)

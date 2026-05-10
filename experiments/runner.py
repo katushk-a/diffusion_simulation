@@ -76,6 +76,7 @@ class ExperimentResult:
     narrative_stats: list[CascadeNarrativeStats]
     simulation_log: SimulationLog
     elapsed_seconds: float
+    output_path: pathlib.Path = None
 
     def summary(self) -> dict:
         """Compact summary suitable for printing / CSV export."""
@@ -119,6 +120,8 @@ class ExperimentResult:
 
     def save(self) -> pathlib.Path:
         """Persist full results as JSON in output_dir / name_YYYYMMDD_HHMM /."""
+        if self.output_path is not None:
+            return self.output_path
         import datetime
         ts = datetime.datetime.now().strftime("%Y%m%d_%H%M")
         out = pathlib.Path(self.config.output_dir) / f"{self.config.name}_{ts}"
@@ -166,6 +169,7 @@ class ExperimentResult:
         except Exception as exc:
             logger.warning("Could not save plots: %s", exc)
 
+        self.output_path = out
         logger.info("Results saved to %s", out)
         return out
 
