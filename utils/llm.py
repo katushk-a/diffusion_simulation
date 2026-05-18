@@ -118,6 +118,8 @@ class OpenAICompatibleBackend(LLMBackend):
         api_key: Optional[str] = None,
         api_key_env: str = "OPENAI_API_KEY",
         embedding_model: Optional[str] = None,
+        max_retries: int = 6,
+        request_delay: float = 0.0,
     ) -> None:
         try:
             from openai import AsyncOpenAI
@@ -126,12 +128,21 @@ class OpenAICompatibleBackend(LLMBackend):
 
         self.model = model
         self.embedding_model = embedding_model
+        # max_retries: SDK retries on 429/5xx with exponential backoff automatically.
+        # Raise from default 2 to give rate-limited APIs more time to recover.
         self.client = AsyncOpenAI(
             api_key=api_key or os.environ.get(api_key_env),
             base_url=base_url,
+            max_retries=max_retries,
         )
+        # Optional fixed delay between every request — useful for APIs that
+        # throttle silently without returning a proper 429 (e.g. MetaCentrum).
+        self._request_delay = request_delay
 
     async def complete(self, prompt: str, temperature: float = 0.7) -> str:
+        import asyncio
+        if self._request_delay > 0:
+            await asyncio.sleep(self._request_delay)
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -369,6 +380,8 @@ def create_backend(
         case "metacentrum":
             kwargs.setdefault("base_url", os.environ.get("METACENTRUM_BASE_URL", "https://llm.metacentrum.cz/v1"))
             kwargs.setdefault("api_key_env", "METACENTRUM_TOKEN")
+            kwargs.setdefault("max_retries", 6)
+            kwargs.setdefault("request_delay", 0.5)  # MetaCentrum throttles without 429
             return OpenAICompatibleBackend(**kwargs)
         case "ollama":
             return OllamaBackend(**kwargs)

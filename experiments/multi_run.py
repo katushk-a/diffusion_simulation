@@ -105,9 +105,10 @@ async def run_multi(
     }
     for k in numeric_keys:
         vals = [s[k] for s in summaries]
+        numeric_vals = [v for v in vals if v is not None]
         aggregated[k] = {
-            "mean": statistics.mean(vals),
-            "std": statistics.stdev(vals) if len(vals) > 1 else 0.0,
+            "mean": statistics.mean(numeric_vals) if numeric_vals else None,
+            "std": statistics.stdev(numeric_vals) if len(numeric_vals) > 1 else 0.0,
             "values": vals,
         }
 
